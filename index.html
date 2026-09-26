@@ -1,0 +1,2359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f766e">
+  <meta name="description" content="Track recurring utility bills month-by-month. Works offline. Data stays on this device.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Bill Tracker">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Utility Bill Tracker</title>
+  <link rel="icon" type="image/png" href="images/icon-192.png">
+  <link rel="apple-touch-icon" href="images/icon-192.png">
+  <link rel="manifest" href="manifest.json">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('ubt-theme');
+        if (t === 'dark' || t === 'light') {
+          document.documentElement.setAttribute('data-theme', t);
+        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        } else {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+  <style>
+    :root {
+      --bg: #f3f5f8;
+      --bg-elev: #ffffff;
+      --bg-muted: #eef2f6;
+      --text: #0f172a;
+      --text-muted: #5b677a;
+      --border: #dbe3ec;
+      --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.06);
+      --accent: #0f766e;
+      --accent-hover: #0d9488;
+      --accent-soft: #ccfbf1;
+      --accent-text: #115e59;
+      --danger: #b42318;
+      --danger-soft: #fee4e2;
+      --up: #b42318;
+      --down: #027a48;
+      --flat: #667085;
+      --warn: #b54708;
+      --warn-soft: #fef0c7;
+      --ok: #027a48;
+      --ok-soft: #d1fadf;
+      --radius: 14px;
+      --radius-sm: 10px;
+      --nav-w: 240px;
+      --header-h: 64px;
+      --bottom-nav-h: 64px;
+      --focus: 0 0 0 3px rgba(15, 118, 110, 0.35);
+      --font: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    [data-theme="dark"] {
+      --bg: #0b1220;
+      --bg-elev: #151d2e;
+      --bg-muted: #1c263a;
+      --text: #e8eef7;
+      --text-muted: #9aa8bc;
+      --border: #2a364c;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 28px rgba(0, 0, 0, 0.28);
+      --accent: #2dd4bf;
+      --accent-hover: #5eead4;
+      --accent-soft: #134e4a;
+      --accent-text: #99f6e4;
+      --danger: #f97066;
+      --danger-soft: #3f1d1c;
+      --up: #f97066;
+      --down: #47cd89;
+      --flat: #98a2b3;
+      --warn: #fdb022;
+      --warn-soft: #3d2a10;
+      --ok: #47cd89;
+      --ok-soft: #163528;
+      --focus: 0 0 0 3px rgba(45, 212, 191, 0.4);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input, select, textarea { font: inherit; color: inherit; }
+    img { max-width: 100%; }
+    a { color: var(--accent); }
+    .skip {
+      position: absolute; left: -999px; top: 8px; background: var(--accent); color: #fff;
+      padding: 8px 12px; z-index: 100; border-radius: 8px;
+    }
+    .skip:focus { left: 8px; }
+    #app { min-height: 100%; display: flex; }
+    .sidebar {
+      width: var(--nav-w);
+      flex-shrink: 0;
+      background: var(--bg-elev);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 18px 12px;
+    }
+    .brand { display: flex; gap: 10px; align-items: center; padding: 6px 10px 18px; }
+    .brand-mark {
+      width: 42px; height: 42px; border-radius: 12px; background: transparent;
+      display: grid; place-items: center; flex-shrink: 0; overflow: hidden;
+    }
+    .brand-mark img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .brand h1 { font-size: 15px; margin: 0; letter-spacing: -0.02em; }
+    .brand p { margin: 0; font-size: 11px; color: var(--text-muted); }
+    .nav-btn {
+      display: flex; align-items: center; gap: 10px; width: 100%;
+      border: 0; background: transparent; text-align: left;
+      padding: 10px 12px; border-radius: 10px; cursor: pointer;
+      color: var(--text-muted); margin-bottom: 2px;
+    }
+    .nav-btn:hover, .nav-btn:focus-visible { background: var(--bg-muted); color: var(--text); outline: none; }
+    .nav-btn:focus-visible { box-shadow: var(--focus); }
+    .nav-btn.active { background: var(--accent-soft); color: var(--accent-text); font-weight: 650; }
+    .nav-btn svg { flex-shrink: 0; }
+    .sidebar-foot { margin-top: auto; padding: 12px 10px 4px; font-size: 11px; color: var(--text-muted); }
+    .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .topbar {
+      height: var(--header-h);
+      display: flex; align-items: center; gap: 12px;
+      padding: 0 20px; border-bottom: 1px solid var(--border);
+      background: var(--bg-elev); position: sticky; top: 0; z-index: 20;
+    }
+    .topbar h2 { font-size: 18px; margin: 0; letter-spacing: -0.03em; flex: 1; }
+    .period-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .content { padding: 20px; padding-bottom: 88px; max-width: 1280px; width: 100%; margin: 0 auto; }
+    .bottom-nav {
+      display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+      background: var(--bg-elev); border-top: 1px solid var(--border);
+      height: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom));
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .bottom-nav button {
+      flex: 1; border: 0; background: none; color: var(--text-muted);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 2px; font-size: 10px; cursor: pointer; padding: 8px 0;
+    }
+    .bottom-nav button.active { color: var(--accent); font-weight: 650; }
+    .icon-btn, .btn {
+      border: 1px solid transparent; border-radius: 10px; cursor: pointer;
+      padding: 8px 12px; display: inline-flex; align-items: center; gap: 8px;
+      font-weight: 600; font-size: 14px;
+    }
+    .btn:focus-visible, .icon-btn:focus-visible, .nav-btn:focus-visible, select:focus-visible,
+    input:focus-visible, textarea:focus-visible { outline: none; box-shadow: var(--focus); }
+    .btn-primary { background: var(--accent); color: #fff; }
+    [data-theme="dark"] .btn-primary { color: #0b1220; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary { background: var(--bg-elev); color: var(--text); border-color: var(--border); }
+    .btn-secondary:hover { background: var(--bg-muted); }
+    .btn-danger { background: var(--danger-soft); color: var(--danger); }
+    .btn-ghost { background: transparent; color: var(--text-muted); }
+    .btn-ghost:hover { background: var(--bg-muted); color: var(--text); }
+    .icon-btn { padding: 8px; background: var(--bg-muted); border-color: var(--border); }
+    .grid { display: grid; gap: 14px; }
+    .kpis { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .split-2 { grid-template-columns: 1.4fr 1fr; }
+    .split-3 { grid-template-columns: repeat(3, 1fr); }
+    .card {
+      background: var(--bg-elev); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px;
+    }
+    .card h3 { margin: 0 0 12px; font-size: 14px; letter-spacing: -0.02em; }
+    .muted { color: var(--text-muted); }
+    .tiny { font-size: 12px; }
+    .kpi-label { font-size: 12px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+    .kpi-value { font-size: 26px; font-weight: 750; letter-spacing: -0.04em; margin: 6px 0 4px; }
+    .delta { display: inline-flex; align-items: center; gap: 6px; font-weight: 650; font-size: 13px; }
+    .delta.up { color: var(--up); }
+    .delta.down { color: var(--down); }
+    .delta.flat { color: var(--flat); }
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      border-radius: 999px; padding: 2px 8px; font-size: 12px; font-weight: 650;
+    }
+    .badge.paid { background: var(--ok-soft); color: var(--ok); }
+    .badge.unpaid { background: var(--danger-soft); color: var(--danger); }
+    .badge.partial { background: var(--warn-soft); color: var(--warn); }
+    .badge.na { background: var(--bg-muted); color: var(--text-muted); }
+    .badge.demo { background: var(--accent-soft); color: var(--accent-text); }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .grow { flex: 1; min-width: 0; }
+    .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+    .field label { font-size: 13px; font-weight: 650; }
+    .field .hint { font-size: 12px; color: var(--text-muted); font-weight: 400; }
+    input[type="text"], input[type="number"], input[type="date"], input[type="month"],
+    input[type="search"], input[type="color"], select, textarea {
+      width: 100%; border: 1px solid var(--border); background: var(--bg);
+      border-radius: 10px; padding: 9px 11px;
+    }
+    textarea { min-height: 80px; resize: vertical; }
+    .table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 12px; }
+    table { width: 100%; border-collapse: collapse; min-width: 760px; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+    th { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); background: var(--bg-muted); position: sticky; top: 0; }
+    tr:last-child td { border-bottom: 0; }
+    .util-chip { display: flex; align-items: center; gap: 8px; }
+    .logo {
+      width: 32px; height: 32px; border-radius: 8px; object-fit: cover;
+      background: var(--bg-muted); display: grid; place-items: center;
+      font-size: 12px; font-weight: 750; color: #fff; flex-shrink: 0; overflow: hidden;
+    }
+    .logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .bill-cards { display: none; }
+    .empty {
+      text-align: center; padding: 48px 20px; border: 1px dashed var(--border);
+      border-radius: var(--radius); background: var(--bg-elev);
+    }
+    .empty h3 { margin: 0 0 8px; font-size: 22px; letter-spacing: -0.03em; }
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: end; }
+    .toolbar .field { margin: 0; min-width: 140px; }
+    .intel-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .intel-item:last-child { border-bottom: 0; }
+    .intel-item h4 { margin: 0 0 4px; font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .intel-item p { margin: 0; font-size: 15px; }
+    .chart-box { position: relative; height: 240px; }
+    canvas { width: 100%; height: 100%; display: block; }
+    [hidden] { display: none !important; }
+    .modal-back {
+      position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45);
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: 24px 16px; z-index: 50; overflow: auto;
+    }
+    .modal {
+      width: min(560px, 100%); background: var(--bg-elev); border-radius: 16px;
+      box-shadow: var(--shadow); border: 1px solid var(--border); margin: auto;
+    }
+    .modal.wide { width: min(420px, 100%); }
+    .share-preview {
+      width: 100%; border-radius: 12px; display: block;
+      background: #0b1220; border: 1px solid var(--border);
+    }
+    .modal header, .modal footer { padding: 14px 18px; display: flex; align-items: center; gap: 8px; }
+    .modal header { border-bottom: 1px solid var(--border); }
+    .modal footer { border-top: 1px solid var(--border); justify-content: flex-end; }
+    .modal h3 { margin: 0; font-size: 16px; flex: 1; }
+    .modal .body { padding: 16px 18px; }
+    #toast {
+      position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%);
+      background: #0f172a; color: #fff; padding: 10px 14px; border-radius: 10px;
+      z-index: 80; display: none; max-width: min(420px, 92vw); font-size: 13px;
+    }
+    [data-theme="dark"] #toast { background: #e8eef7; color: #0b1220; }
+    .warn-banner {
+      background: var(--warn-soft); color: var(--warn); padding: 10px 14px;
+      border-radius: 10px; margin-bottom: 14px; font-size: 13px;
+    }
+    .privacy { font-size: 13px; background: var(--bg-muted); padding: 12px; border-radius: 10px; }
+    .util-card { display: flex; gap: 12px; align-items: center; }
+    .util-card .meta { flex: 1; min-width: 0; }
+    .bar-track { height: 8px; background: var(--bg-muted); border-radius: 99px; overflow: hidden; }
+    .bar-fill { height: 100%; background: var(--accent); border-radius: 99px; }
+    .grid-table td, .grid-table th { text-align: right; white-space: nowrap; }
+    .grid-table td:first-child, .grid-table th:first-child { text-align: left; }
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0,0,0,0); border: 0;
+    }
+    .checkline { display: flex; gap: 8px; align-items: center; }
+    .checkline input { width: auto; }
+    .color-row { display: flex; gap: 8px; align-items: center; }
+    .color-row input[type="color"] { width: 46px; height: 38px; padding: 4px; }
+    .actions { display: flex; gap: 4px; }
+    .insight { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+    .insight:last-child { border-bottom: 0; }
+    .est { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--warn); }
+    @media (max-width: 980px) {
+      .split-2, .split-3 { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .bottom-nav { display: flex; }
+      .topbar { padding: 0 12px; }
+      .content { padding: 14px 12px 96px; }
+      .kpi-value { font-size: 22px; }
+    }
+    @media (max-width: 720px) {
+      .desktop-table { display: none; }
+      .bill-cards { display: grid; gap: 10px; }
+      .period-bar { width: 100%; }
+      .topbar { height: auto; padding: 10px 12px; flex-wrap: wrap; }
+      .topbar h2 { width: 100%; }
+    }
+    @media print {
+      .sidebar, .bottom-nav, .topbar, .no-print, #toast, .modal-back { display: none !important; }
+      body, .content { background: #fff; color: #111; padding: 0; }
+      .card { box-shadow: none; break-inside: avoid; }
+      #app, .main { display: block; }
+      .content { max-width: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to content</a>
+  <div id="idb-warning" class="modal-back" hidden>
+    <div class="modal" role="alertdialog" aria-labelledby="idb-title">
+      <header><h3 id="idb-title">Local storage is unavailable</h3></header>
+      <div class="body">
+        <p>This browser cannot use IndexedDB, so bills and logos cannot be saved. You can still look around, but changes will not persist after you close the page.</p>
+      </div>
+    </div>
+  </div>
+  <div id="app">
+    <aside class="sidebar" aria-label="Main navigation">
+      <div class="brand">
+        <div class="brand-mark">
+          <img src="images/utility-icon.png" alt="Utility Bill Tracker" width="42" height="42">
+        </div>
+        <div>
+          <h1>Utility Bill Tracker</h1>
+          <p>Local-first · Offline</p>
+        </div>
+      </div>
+      <nav>
+        <button class="nav-btn active" data-action="nav" data-view="dashboard">Dashboard</button>
+        <button class="nav-btn" data-action="nav" data-view="bills">Bills</button>
+        <button class="nav-btn" data-action="nav" data-view="utilities">Utilities</button>
+        <button class="nav-btn" data-action="nav" data-view="analytics">Analytics</button>
+        <button class="nav-btn" data-action="nav" data-view="reports">Reports</button>
+        <button class="nav-btn" data-action="nav" data-view="settings">Settings</button>
+      </nav>
+      <div class="sidebar-foot">Your data is stored locally on this device.</div>
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <h2 id="view-title">Dashboard</h2>
+        <div class="period-bar no-print" id="period-bar"></div>
+      </header>
+      <main class="content" id="content" tabindex="-1"></main>
+    </div>
+    <nav class="bottom-nav" aria-label="Mobile navigation">
+      <button data-action="nav" data-view="dashboard" class="active">Dashboard</button>
+      <button data-action="nav" data-view="bills">Bills</button>
+      <button data-action="nav" data-view="utilities">Utilities</button>
+      <button data-action="nav" data-view="analytics">Analytics</button>
+      <button data-action="nav" data-view="more">More</button>
+    </nav>
+  </div>
+  <div id="modal-root"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+  /* Utility Bill Tracker.
+     Persistence: IndexedDB. Preferences theme key: localStorage "ubt-theme".
+     PWA: manifest.json + sw.js. Install requires https or localhost.
+     Opening as a file:// page still runs the app, but cannot be installed. */
+  (function () {
+    'use strict';
+
+    var DB_NAME = 'utility-bill-tracker';
+    var DB_VERSION = 1;
+    var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var CURRENCIES = {
+      JMD: { code: 'JMD', symbol: 'J$', name: 'Jamaican Dollar' },
+      USD: { code: 'USD', symbol: '$', name: 'US Dollar' },
+      CAD: { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' },
+      GBP: { code: 'GBP', symbol: '£', name: 'British Pound' },
+      EUR: { code: 'EUR', symbol: '€', name: 'Euro' }
+    };
+    var STATUS_LABEL = { unpaid: 'Unpaid', paid: 'Paid', partial: 'Partially Paid', na: 'Not Applicable' };
+    var VIEW_TITLES = { dashboard: 'Dashboard', bills: 'Bills', utilities: 'Utilities', analytics: 'Analytics', reports: 'Reports', settings: 'Settings' };
+
+    var db = null;
+    var idbOk = true;
+    var state = {
+      view: 'dashboard',
+      period: 'current-month',
+      customFrom: null,
+      customTo: null,
+      utilities: [],
+      bills: [],
+      settings: null,
+      billSearch: '',
+      billUtility: '',
+      billStatus: '',
+      billChange: '',
+      trendUtilityId: '',
+      moreOpen: false,
+      canInstall: false
+    };
+    var deferredInstall = null;
+
+    function nowDate() { return new Date(); }
+    function uid() { return (crypto && crypto.randomUUID) ? crypto.randomUUID() : ('id-' + Date.now() + '-' + Math.random().toString(16).slice(2)); }
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c];
+      });
+    }
+    function pad2(n) { return String(n).padStart(2, '0'); }
+    function ymKey(y, m) { return y + '-' + pad2(m); }
+    function parseYm(key) {
+      var p = String(key).split('-');
+      return { year: +p[0], month: +p[1] };
+    }
+    function addMonths(y, m, delta) {
+      var t = y * 12 + (m - 1) + delta;
+      return { year: Math.floor(t / 12), month: (t % 12) + 1 };
+    }
+    function monthLabel(y, m, short) {
+      return (short ? MONTHS_SHORT[m - 1] : MONTHS[m - 1]) + ' ' + y;
+    }
+    function defaultSettings() {
+      var n = nowDate();
+      return {
+        id: 'settings',
+        currency: 'JMD',
+        theme: document.documentElement.getAttribute('data-theme') || 'light',
+        budgetEnabled: false,
+        monthlyBudget: 0,
+        dateFormat: 'dd-mmm-yyyy',
+        decimalPlaces: 2,
+        grouping: true,
+        lastUtilityId: null,
+        lastBillingMonth: n.getMonth() + 1,
+        lastBillingYear: n.getFullYear(),
+        demoData: false
+      };
+    }
+
+    /* ---------- IndexedDB ---------- */
+    function idbReq(req) {
+      return new Promise(function (resolve, reject) {
+        req.onsuccess = function () { resolve(req.result); };
+        req.onerror = function () { reject(req.error); };
+      });
+    }
+    function openDb() {
+      return new Promise(function (resolve, reject) {
+        if (!window.indexedDB) { reject(new Error('IndexedDB unavailable')); return; }
+        var req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = function () {
+          var d = req.result;
+          if (!d.objectStoreNames.contains('utilities')) {
+            d.createObjectStore('utilities', { keyPath: 'id' });
+          }
+          if (!d.objectStoreNames.contains('bills')) {
+            var bills = d.createObjectStore('bills', { keyPath: 'id' });
+            bills.createIndex('utilityId', 'utilityId', { unique: false });
+            bills.createIndex('yearMonth', 'yearMonth', { unique: false });
+            bills.createIndex('status', 'status', { unique: false });
+          }
+          if (!d.objectStoreNames.contains('meta')) {
+            d.createObjectStore('meta', { keyPath: 'id' });
+          }
+        };
+        req.onsuccess = function () { resolve(req.result); };
+        req.onerror = function () { reject(req.error); };
+      });
+    }
+    function txDone(tx) {
+      return new Promise(function (resolve, reject) {
+        tx.oncomplete = function () { resolve(); };
+        tx.onerror = function () { reject(tx.error); };
+        tx.onabort = function () { reject(tx.error || new Error('aborted')); };
+      });
+    }
+    function storeGetAll(name) {
+      return idbReq(db.transaction(name).objectStore(name).getAll());
+    }
+    function storePut(name, value) {
+      var tx = db.transaction(name, 'readwrite');
+      tx.objectStore(name).put(value);
+      return txDone(tx);
+    }
+    function storeDelete(name, id) {
+      var tx = db.transaction(name, 'readwrite');
+      tx.objectStore(name).delete(id);
+      return txDone(tx);
+    }
+    function storeClear(name) {
+      var tx = db.transaction(name, 'readwrite');
+      tx.objectStore(name).clear();
+      return txDone(tx);
+    }
+    async function loadAll() {
+      var utilities = await storeGetAll('utilities');
+      var bills = await storeGetAll('bills');
+      var meta = await storeGetAll('meta');
+      state.utilities = (utilities || []).filter(validUtility).sort(function (a, b) { return a.name.localeCompare(b.name); });
+      state.bills = (bills || []).filter(validBill);
+      var s = meta.find(function (m) { return m.id === 'settings'; });
+      state.settings = Object.assign(defaultSettings(), s || {});
+      applyTheme(state.settings.theme, false);
+    }
+    function validUtility(u) {
+      return u && typeof u.id === 'string' && typeof u.name === 'string' && u.name.trim();
+    }
+    function validBill(b) {
+      if (!b || typeof b.id !== 'string' || typeof b.utilityId !== 'string') return false;
+      var m = +b.billingMonth, y = +b.billingYear, amt = +b.amount;
+      if (!(m >= 1 && m <= 12) || !isFinite(y) || y < 1990 || y > 2200) return false;
+      if (!isFinite(amt) || amt < 0) return false;
+      return true;
+    }
+
+    /* ---------- Theme / format ---------- */
+    function applyTheme(theme, persist) {
+      var t = theme === 'dark' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', t);
+      document.querySelector('meta[name="theme-color"]').setAttribute('content', t === 'dark' ? '#0b1220' : '#0f766e');
+      try { localStorage.setItem('ubt-theme', t); } catch (e) {}
+      if (persist && state.settings) {
+        state.settings.theme = t;
+        saveSettings();
+      }
+    }
+    function money(n, opts) {
+      if (n == null || !isFinite(n)) return '—';
+      var s = state.settings || defaultSettings();
+      var cur = CURRENCIES[s.currency] || CURRENCIES.JMD;
+      var d = s.decimalPlaces == null ? 2 : +s.decimalPlaces;
+      var abs = Math.abs(n);
+      var parts = abs.toFixed(d).split('.');
+      if (s.grouping !== false) parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      var body = parts.join('.');
+      var sign = n < 0 ? '-' : (opts && opts.sign && n > 0 ? '+' : '');
+      return sign + cur.symbol + body;
+    }
+    function formatDate(iso) {
+      if (!iso) return '—';
+      var p = String(iso).slice(0, 10).split('-');
+      if (p.length !== 3) return esc(iso);
+      var y = p[0], m = +p[1], d = +p[2];
+      var fmt = (state.settings && state.settings.dateFormat) || 'dd-mmm-yyyy';
+      if (fmt === 'yyyy-mm-dd') return y + '-' + pad2(m) + '-' + pad2(d);
+      if (fmt === 'mm/dd/yyyy') return pad2(m) + '/' + pad2(d) + '/' + y;
+      if (fmt === 'dd/mm/yyyy') return pad2(d) + '/' + pad2(m) + '/' + y;
+      return pad2(d) + ' ' + MONTHS_SHORT[m - 1] + ' ' + y;
+    }
+    function fmtPct(p) {
+      if (p == null || !isFinite(p)) return 'N/A';
+      var sign = p > 0 ? '+' : '';
+      return sign + p.toFixed(2) + '%';
+    }
+    async function saveSettings() {
+      if (!idbOk || !db) return;
+      await storePut('meta', state.settings);
+    }
+
+    /* ---------- Calculations ---------- */
+    var Calc = {
+      monthTotal: function (bills, y, m) {
+        var list = bills.filter(function (b) { return b.billingYear === y && b.billingMonth === m; });
+        if (!list.length) return null;
+        return list.reduce(function (s, b) { return s + (+b.amount || 0); }, 0);
+      },
+      utilityMonthTotal: function (bills, utilityId, y, m) {
+        var list = bills.filter(function (b) { return b.utilityId === utilityId && b.billingYear === y && b.billingMonth === m; });
+        if (!list.length) return null;
+        return list.reduce(function (s, b) { return s + (+b.amount || 0); }, 0);
+      },
+      change: function (current, previous) {
+        if (current == null || previous == null) return null;
+        return current - previous;
+      },
+      pct: function (current, previous) {
+        if (current == null || previous == null || previous === 0) return null;
+        return ((current - previous) / previous) * 100;
+      },
+      deltaKind: function (change) {
+        if (change == null) return 'na';
+        if (change > 0) return 'up';
+        if (change < 0) return 'down';
+        return 'flat';
+      },
+      deltaIcon: function (kind) {
+        if (kind === 'up') return '↑';
+        if (kind === 'down') return '↓';
+        if (kind === 'flat') return '—';
+        return '';
+      },
+      periodRange: function () {
+        var n = nowDate();
+        var cy = n.getFullYear(), cm = n.getMonth() + 1;
+        var p = state.period;
+        if (p === 'current-month') return { from: { year: cy, month: cm }, to: { year: cy, month: cm } };
+        if (p === 'last-3') return { from: addMonths(cy, cm, -2), to: { year: cy, month: cm } };
+        if (p === 'last-6') return { from: addMonths(cy, cm, -5), to: { year: cy, month: cm } };
+        if (p === 'last-12') return { from: addMonths(cy, cm, -11), to: { year: cy, month: cm } };
+        if (p === 'current-year') return { from: { year: cy, month: 1 }, to: { year: cy, month: 12 } };
+        if (p === 'previous-year') return { from: { year: cy - 1, month: 1 }, to: { year: cy - 1, month: 12 } };
+        if (p === 'custom' && state.customFrom && state.customTo) {
+          var a = parseYm(state.customFrom), b = parseYm(state.customTo);
+          if (a.year * 12 + a.month > b.year * 12 + b.month) return { from: b, to: a };
+          return { from: a, to: b };
+        }
+        var keys = {};
+        state.bills.forEach(function (bill) { keys[ymKey(bill.billingYear, bill.billingMonth)] = true; });
+        var all = Object.keys(keys).sort();
+        if (!all.length) return { from: { year: cy, month: cm }, to: { year: cy, month: cm } };
+        return { from: parseYm(all[0]), to: parseYm(all[all.length - 1]) };
+      },
+      monthsInRange: function (from, to) {
+        var out = [];
+        var cur = { year: from.year, month: from.month };
+        var guard = 0;
+        while (cur.year * 12 + cur.month <= to.year * 12 + to.month && guard++ < 600) {
+          out.push({ year: cur.year, month: cur.month, key: ymKey(cur.year, cur.month) });
+          cur = addMonths(cur.year, cur.month, 1);
+        }
+        return out;
+      },
+      monthsWithData: function (bills, from, to) {
+        var map = {};
+        bills.forEach(function (b) {
+          var idx = b.billingYear * 12 + b.billingMonth;
+          if (idx >= from.year * 12 + from.month && idx <= to.year * 12 + to.month) {
+            var k = ymKey(b.billingYear, b.billingMonth);
+            if (!map[k]) map[k] = 0;
+            map[k] += +b.amount || 0;
+          }
+        });
+        return Object.keys(map).sort().map(function (k) {
+          var p = parseYm(k);
+          return { year: p.year, month: p.month, key: k, total: map[k] };
+        });
+      },
+      averageMonthly: function (bills, from, to) {
+        var rows = this.monthsWithData(bills, from, to);
+        if (!rows.length) return null;
+        var sum = rows.reduce(function (s, r) { return s + r.total; }, 0);
+        return sum / rows.length;
+      },
+      focusMonth: function () {
+        var r = this.periodRange();
+        var n = nowDate();
+        var nowIdx = n.getFullYear() * 12 + (n.getMonth() + 1);
+        var toIdx = r.to.year * 12 + r.to.month;
+        if (toIdx > nowIdx && this.monthTotal(state.bills, n.getFullYear(), n.getMonth() + 1) != null) {
+          return { year: n.getFullYear(), month: n.getMonth() + 1 };
+        }
+        var withData = this.monthsWithData(state.bills, r.from, r.to);
+        if (withData.length) {
+          var last = withData[withData.length - 1];
+          return { year: last.year, month: last.month };
+        }
+        return r.to;
+      },
+      annotateBill: function (bill) {
+        var prev = addMonths(bill.billingYear, bill.billingMonth, -1);
+        var previous = this.utilityMonthTotal(state.bills, bill.utilityId, prev.year, prev.month);
+        var change = this.change(bill.amount, previous);
+        var pct = this.pct(bill.amount, previous);
+        var kind = previous == null ? 'na' : this.deltaKind(change);
+        return { previous: previous, change: change, pct: pct, kind: kind };
+      }
+    };
+
+    function utilityById(id) {
+      for (var i = 0; i < state.utilities.length; i++) if (state.utilities[i].id === id) return state.utilities[i];
+      return null;
+    }
+    function initials(name) {
+      return String(name || '?').trim().split(/\s+/).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase();
+    }
+    function logoHtml(u, size) {
+      var c = (u && u.color) || '#0f766e';
+      var dim = size || 32;
+      if (u && u.logo) {
+        return '<span class="logo" style="width:' + dim + 'px;height:' + dim + 'px;background:' + esc(c) + '"><img alt="" src="' + esc(u.logo) + '"></span>';
+      }
+      return '<span class="logo" style="width:' + dim + 'px;height:' + dim + 'px;background:' + esc(c) + '">' + esc(initials(u && u.name)) + '</span>';
+    }
+    function deltaHtml(kind, change, pct) {
+      if (kind === 'na') return '<span class="delta flat">New cost · N/A</span>';
+      var cls = kind === 'up' ? 'up' : kind === 'down' ? 'down' : 'flat';
+      var label = kind === 'up' ? 'Increase' : kind === 'down' ? 'Reduction' : 'No change';
+      return '<span class="delta ' + cls + '">' + Calc.deltaIcon(kind) + ' ' + label + ' · ' +
+        (change == null ? 'N/A' : money(change, { sign: true })) +
+        (pct == null ? ' · N/A' : ' · ' + fmtPct(pct)) + '</span>';
+    }
+
+    /* ---------- Logo processing ---------- */
+    function processLogo(file) {
+      return new Promise(function (resolve, reject) {
+        if (!file) { resolve(null); return; }
+        if (file.size > 2 * 1024 * 1024) { reject(new Error('Please choose an image smaller than 2 MB.')); return; }
+        var ok = /image\/(png|jpeg|jpg|webp|svg\+xml)/i.test(file.type) || /\.(png|jpe?g|webp|svg)$/i.test(file.name);
+        if (!ok) { reject(new Error('Use PNG, JPG, WEBP, or SVG.')); return; }
+        if (file.type === 'image/svg+xml' || /\.svg$/i.test(file.name)) {
+          var reader = new FileReader();
+          reader.onload = function () {
+            var text = String(reader.result || '');
+            if (/<script/i.test(text) || /\bon\w+\s*=/i.test(text)) {
+              reject(new Error('This SVG cannot be used because it contains scripts.'));
+              return;
+            }
+            if (text.length > 80000) { reject(new Error('SVG is too large.')); return; }
+            resolve('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(text));
+          };
+          reader.onerror = function () { reject(new Error('Could not read that image.')); };
+          reader.readAsText(file);
+          return;
+        }
+        var fr = new FileReader();
+        fr.onload = function () {
+          var img = new Image();
+          img.onload = function () {
+            var max = 192;
+            var scale = Math.min(1, max / Math.max(img.width, img.height));
+            var w = Math.max(1, Math.round(img.width * scale));
+            var h = Math.max(1, Math.round(img.height * scale));
+            var canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            var hasAlpha = file.type === 'image/png';
+            try {
+              resolve(canvas.toDataURL(hasAlpha ? 'image/png' : 'image/jpeg', 0.82));
+            } catch (e) {
+              reject(new Error('Could not process that image.'));
+            }
+          };
+          img.onerror = function () { reject(new Error('Could not process that image.')); };
+          img.src = fr.result;
+        };
+        fr.onerror = function () { reject(new Error('Could not read that image.')); };
+        fr.readAsDataURL(file);
+      });
+    }
+
+    /* ---------- Charts ---------- */
+    function cssVar(name) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+    function setupCanvas(canvas) {
+      var rect = canvas.getBoundingClientRect();
+      var dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      var ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return { ctx: ctx, w: rect.width, h: rect.height };
+    }
+    function drawBarLine(canvas, points, opts) {
+      if (!canvas || !points.length) return;
+      var s = setupCanvas(canvas);
+      var ctx = s.ctx, w = s.w, h = s.h;
+      var pad = { l: 48, r: 12, t: 16, b: 36 };
+      var vals = points.map(function (p) { return p.value; }).filter(function (v) { return v != null; });
+      var max = Math.max.apply(null, vals.concat([1]));
+      var min = 0;
+      ctx.clearRect(0, 0, w, h);
+      ctx.strokeStyle = cssVar('--border');
+      ctx.fillStyle = cssVar('--text-muted');
+      ctx.font = '11px ' + cssVar('--font');
+      ctx.textAlign = 'right';
+      for (var i = 0; i < 4; i++) {
+        var y = pad.t + ((h - pad.t - pad.b) * i / 3);
+        ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+        var v = max - (max - min) * i / 3;
+        ctx.fillText(compactNum(v), pad.l - 6, y + 4);
+      }
+      var n = points.length;
+      var gap = 8;
+      var inner = w - pad.l - pad.r;
+      var bw = Math.max(4, (inner / n) - gap);
+      points.forEach(function (p, idx) {
+        var x = pad.l + (idx + 0.5) * (inner / n);
+        ctx.fillStyle = cssVar('--text-muted');
+        ctx.textAlign = 'center';
+        ctx.fillText(p.label, x, h - 12);
+        if (p.value == null) return;
+        var barH = ((p.value - min) / (max - min || 1)) * (h - pad.t - pad.b);
+        var bx = x - bw / 2;
+        var by = h - pad.b - barH;
+        ctx.fillStyle = cssVar('--accent');
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(bx, by, bw, barH, 4);
+        else ctx.rect(bx, by, bw, barH);
+        ctx.fill();
+      });
+      if (opts && opts.line) {
+        ctx.beginPath();
+        ctx.strokeStyle = cssVar('--accent-hover');
+        ctx.lineWidth = 2;
+        var started = false;
+        points.forEach(function (p, idx) {
+          if (p.value == null) return;
+          var x = pad.l + (idx + 0.5) * (inner / n);
+          var y = h - pad.b - ((p.value - min) / (max - min || 1)) * (h - pad.t - pad.b);
+          if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      }
+    }
+    function drawDonut(canvas, slices) {
+      if (!canvas || !slices.length) return;
+      var s = setupCanvas(canvas);
+      var ctx = s.ctx, w = s.w, h = s.h;
+      var cx = w * 0.32, cy = h / 2, r = Math.min(w, h) * 0.32;
+      var total = slices.reduce(function (a, b) { return a + b.value; }, 0) || 1;
+      var a0 = -Math.PI / 2;
+      slices.forEach(function (sl) {
+        var a1 = a0 + (sl.value / total) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, a0, a1);
+        ctx.closePath();
+        ctx.fillStyle = sl.color;
+        ctx.fill();
+        a0 = a1;
+      });
+      ctx.beginPath();
+      ctx.fillStyle = cssVar('--bg-elev');
+      ctx.arc(cx, cy, r * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = cssVar('--text');
+      ctx.font = '12px ' + cssVar('--font');
+      var lx = w * 0.58, ly = 24;
+      slices.forEach(function (sl) {
+        ctx.fillStyle = sl.color;
+        ctx.fillRect(lx, ly - 8, 10, 10);
+        ctx.fillStyle = cssVar('--text');
+        ctx.fillText(sl.label + '  ' + (total ? ((sl.value / total) * 100).toFixed(0) + '%' : 'n/a'), lx + 16, ly);
+        ly += 18;
+      });
+    }
+    function compactNum(n) {
+      if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+      if (n >= 1000) return (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k';
+      return String(Math.round(n));
+    }
+
+    /* ---------- Month share image ---------- */
+    var shareState = { blob: null, url: '', year: null, month: null };
+
+    function loadImg(src) {
+      return new Promise(function (resolve) {
+        if (!src) { resolve(null); return; }
+        var img = new Image();
+        img.onload = function () { resolve(img); };
+        img.onerror = function () { resolve(null); };
+        img.src = src;
+      });
+    }
+    function pathRoundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); return; }
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+    function fitText(ctx, text, maxW) {
+      var s = String(text || '');
+      if (ctx.measureText(s).width <= maxW) return s;
+      while (s.length && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+      return s + '…';
+    }
+    function shareMonthData(year, month) {
+      var prev = addMonths(year, month, -1);
+      var total = Calc.monthTotal(state.bills, year, month);
+      var prevTotal = Calc.monthTotal(state.bills, prev.year, prev.month);
+      var rows = state.utilities.map(function (u) {
+        var cur = Calc.utilityMonthTotal(state.bills, u.id, year, month);
+        if (cur == null) return null;
+        var previous = Calc.utilityMonthTotal(state.bills, u.id, prev.year, prev.month);
+        return {
+          u: u,
+          cur: cur,
+          previous: previous,
+          change: Calc.change(cur, previous),
+          pct: Calc.pct(cur, previous),
+          kind: previous == null ? 'na' : Calc.deltaKind(Calc.change(cur, previous))
+        };
+      }).filter(Boolean).sort(function (a, b) { return b.cur - a.cur; });
+      return {
+        year: year,
+        month: month,
+        total: total,
+        prevTotal: prevTotal,
+        change: Calc.change(total, prevTotal),
+        pct: Calc.pct(total, prevTotal),
+        kind: prevTotal == null ? 'na' : Calc.deltaKind(Calc.change(total, prevTotal)),
+        rows: rows
+      };
+    }
+    function shareDeltaText(kind, change, pct) {
+      if (kind === 'na') return 'New cost · N/A';
+      var icon = Calc.deltaIcon(kind);
+      var label = kind === 'up' ? 'Increase' : kind === 'down' ? 'Reduction' : 'No change';
+      return icon + ' ' + label + '  ' + (change == null ? 'N/A' : money(change, { sign: true })) +
+        (pct == null ? '  ·  N/A' : '  ·  ' + fmtPct(pct));
+    }
+    function shareDeltaColor(kind) {
+      if (kind === 'up') return '#f97066';
+      if (kind === 'down') return '#47cd89';
+      return '#98a2b3';
+    }
+    async function drawShareCard(data) {
+      var W = 1080;
+      var pad = 56;
+      var rowH = 108;
+      var H = 430 + data.rows.length * rowH + 110;
+      var canvas = document.createElement('canvas');
+      canvas.width = W;
+      canvas.height = H;
+      var ctx = canvas.getContext('2d');
+      var font = 'system-ui, "Segoe UI", Roboto, Arial, sans-serif';
+
+      ctx.fillStyle = '#07101c';
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#10192b';
+      pathRoundRect(ctx, 28, 28, W - 56, H - 56, 36);
+      ctx.fill();
+
+      var logo = await loadImg('images/utility-icon.png');
+      if (logo) {
+        ctx.save();
+        pathRoundRect(ctx, pad, 56, 84, 84, 20);
+        ctx.clip();
+        ctx.drawImage(logo, pad, 56, 84, 84);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = '#0f766e';
+        pathRoundRect(ctx, pad, 56, 84, 84, 20);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#e8eef7';
+      ctx.font = '700 36px ' + font;
+      ctx.textAlign = 'left';
+      ctx.fillText('Utility Bill Tracker', pad + 104, 92);
+      ctx.fillStyle = '#9aa8bc';
+      ctx.font = '500 22px ' + font;
+      ctx.fillText('Monthly spending snapshot', pad + 104, 128);
+
+      ctx.fillStyle = '#e8eef7';
+      ctx.font = '750 52px ' + font;
+      ctx.fillText(monthLabel(data.year, data.month), pad, 210);
+
+      pathRoundRect(ctx, pad, 236, W - pad * 2, 150, 22);
+      ctx.fillStyle = '#172033';
+      ctx.fill();
+      ctx.fillStyle = '#8b9bb3';
+      ctx.font = '700 18px ' + font;
+      ctx.fillText('TOTAL', pad + 28, 276);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '750 56px ' + font;
+      ctx.fillText(money(data.total), pad + 28, 338);
+      ctx.fillStyle = shareDeltaColor(data.kind);
+      ctx.font = '650 22px ' + font;
+      ctx.fillText(shareDeltaText(data.kind, data.change, data.pct), pad + 28, 368);
+
+      var y = 416;
+      for (var i = 0; i < data.rows.length; i++) {
+        var row = data.rows[i];
+        pathRoundRect(ctx, pad, y, W - pad * 2, 96, 18);
+        ctx.fillStyle = i % 2 ? '#121b2d' : '#152033';
+        ctx.fill();
+
+        var lx = pad + 20, ly = y + 16;
+        var logoImg = await loadImg(row.u.logo);
+        if (logoImg) {
+          ctx.save();
+          pathRoundRect(ctx, lx, ly, 64, 64, 14);
+          ctx.clip();
+          ctx.drawImage(logoImg, lx, ly, 64, 64);
+          ctx.restore();
+        } else {
+          ctx.fillStyle = row.u.color || '#0f766e';
+          pathRoundRect(ctx, lx, ly, 64, 64, 14);
+          ctx.fill();
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '750 22px ' + font;
+          ctx.textAlign = 'center';
+          ctx.fillText(initials(row.u.name), lx + 32, ly + 42);
+          ctx.textAlign = 'left';
+        }
+
+        ctx.fillStyle = '#e8eef7';
+        ctx.font = '700 28px ' + font;
+        ctx.fillText(fitText(ctx, row.u.name, 420), lx + 84, y + 42);
+        ctx.fillStyle = shareDeltaColor(row.kind);
+        ctx.font = '650 20px ' + font;
+        ctx.fillText(shareDeltaText(row.kind, row.change, row.pct), lx + 84, y + 72);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '750 32px ' + font;
+        ctx.textAlign = 'right';
+        ctx.fillText(money(row.cur), W - pad - 28, y + 58);
+        ctx.textAlign = 'left';
+        y += rowH;
+      }
+
+      ctx.fillStyle = '#7d8ba3';
+      ctx.font = '500 20px ' + font;
+      ctx.fillText('Recorded bills only  ·  Missing months are not treated as $0', pad, H - 58);
+      ctx.fillText('Your data stays on this device', pad, H - 32);
+
+      var blob = await new Promise(function (resolve, reject) {
+        canvas.toBlob(function (b) { b ? resolve(b) : reject(new Error('toBlob failed')); }, 'image/png');
+      });
+      return blob;
+    }
+    function shareFileName() {
+      return 'utility-bills-' + ymKey(shareState.year, shareState.month) + '.png';
+    }
+    async function openShareMonth(year, month) {
+      var focus = Calc.focusMonth();
+      var y = year || focus.year;
+      var m = month || focus.month;
+      var data = shareMonthData(y, m);
+      if (data.total == null) {
+        toast('No bills recorded for ' + monthLabel(y, m) + '.');
+        return;
+      }
+      try {
+        var blob = await drawShareCard(data);
+        if (shareState.url) URL.revokeObjectURL(shareState.url);
+        shareState.blob = blob;
+        shareState.url = URL.createObjectURL(blob);
+        shareState.year = y;
+        shareState.month = m;
+        var canShare = !!(navigator.share && navigator.canShare);
+        openModal({
+          title: 'Share month image',
+          wide: true,
+          body:
+            '<p class="tiny muted">Copy the image and paste it into WhatsApp, or download it to attach on your phone. Account numbers and notes are not included.</p>' +
+            '<div class="row" style="margin:10px 0 12px">' +
+              '<div class="field grow"><label for="share-month">Month</label><select id="share-month">' + monthOptions(m) + '</select></div>' +
+              '<div class="field grow"><label for="share-year">Year</label><select id="share-year">' + yearOptions(y) + '</select></div>' +
+            '</div>' +
+            '<img class="share-preview" alt="Month spending snapshot" src="' + shareState.url + '">',
+          footer:
+            '<button class="btn btn-secondary" data-action="close-modal">Close</button>' +
+            '<button class="btn btn-secondary" data-action="download-share">Download PNG</button>' +
+            (canShare ? '<button class="btn btn-secondary" data-action="system-share">Share</button>' : '') +
+            '<button class="btn btn-primary" data-action="copy-share">Copy image</button>'
+        });
+      } catch (err) {
+        console.error(err);
+        toast('Could not create the image.');
+      }
+    }
+    async function copyShareImage() {
+      if (!shareState.blob) { toast('Create the image first.'); return; }
+      if (navigator.clipboard && window.ClipboardItem) {
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': shareState.blob })]);
+          toast('Image copied. Paste it into WhatsApp.');
+          return;
+        } catch (err) {}
+      }
+      toast('Copy is not available here. Download the PNG instead.');
+    }
+    function downloadShareImage() {
+      if (!shareState.url) return;
+      var a = document.createElement('a');
+      a.href = shareState.url;
+      a.download = shareFileName();
+      a.click();
+      toast('PNG downloaded');
+    }
+    async function systemShareImage() {
+      if (!shareState.blob || !navigator.share) return;
+      try {
+        var file = new File([shareState.blob], shareFileName(), { type: 'image/png' });
+        if (navigator.canShare && !navigator.canShare({ files: [file] })) {
+          toast('This device cannot share the image file. Download it instead.');
+          return;
+        }
+        await navigator.share({ files: [file], title: 'Utility bills · ' + monthLabel(shareState.year, shareState.month) });
+      } catch (err) {
+        if (err && err.name !== 'AbortError') toast('Sharing was cancelled or is not available.');
+      }
+    }
+
+    /* ---------- UI helpers ---------- */
+    function toast(msg) {
+      var el = document.getElementById('toast');
+      el.textContent = msg;
+      el.style.display = 'block';
+      clearTimeout(toast._t);
+      toast._t = setTimeout(function () { el.style.display = 'none'; }, 2800);
+    }
+    function closeModal() {
+      document.getElementById('modal-root').innerHTML = '';
+    }
+    function openModal(opts) {
+      var root = document.getElementById('modal-root');
+      root.innerHTML = '<div class="modal-back" data-backdrop="1"><div class="modal' + (opts.wide ? ' wide' : '') + '" role="dialog" aria-modal="true" aria-labelledby="modal-title">' +
+        '<header><h3 id="modal-title">' + esc(opts.title) + '</h3><button class="icon-btn" type="button" data-action="close-modal" aria-label="Close">✕</button></header>' +
+        '<div class="body">' + opts.body + '</div>' +
+        (opts.footer ? '<footer>' + opts.footer + '</footer>' : '') +
+        '</div></div>';
+      var first = root.querySelector('input, select, textarea, button');
+      if (first) first.focus();
+    }
+    function confirmModal(title, message, okLabel, danger) {
+      return new Promise(function (resolve) {
+        openModal({
+          title: title,
+          body: '<p>' + esc(message) + '</p>',
+          footer: '<button class="btn btn-secondary" data-action="confirm-no">Cancel</button>' +
+            '<button class="btn ' + (danger ? 'btn-danger' : 'btn-primary') + '" data-action="confirm-yes">' + esc(okLabel || 'Confirm') + '</button>'
+        });
+        confirmModal._resolve = resolve;
+      });
+    }
+
+    function selectOptions(list, value, labelFn, valueFn) {
+      return list.map(function (item) {
+        var v = valueFn ? valueFn(item) : item;
+        var l = labelFn ? labelFn(item) : item;
+        return '<option value="' + esc(v) + '"' + (String(v) === String(value) ? ' selected' : '') + '>' + esc(l) + '</option>';
+      }).join('');
+    }
+    function yearOptions(selected) {
+      var y = nowDate().getFullYear();
+      var out = [];
+      for (var i = y - 15; i <= y + 2; i++) out.push(i);
+      return selectOptions(out, selected);
+    }
+    function monthOptions(selected) {
+      return MONTHS.map(function (name, i) {
+        return '<option value="' + (i + 1) + '"' + (selected === (i + 1) ? ' selected' : '') + '>' + name + '</option>';
+      }).join('');
+    }
+
+    /* ---------- Period bar ---------- */
+    function renderPeriodBar() {
+      var bar = document.getElementById('period-bar');
+      if (state.view === 'utilities' || state.view === 'settings' || state.view === 'bills') {
+        bar.innerHTML = '';
+        return;
+      }
+      bar.innerHTML =
+        '<label class="sr-only" for="period-select">Time period</label>' +
+        '<select id="period-select" data-action="period">' +
+          '<option value="current-month">Current month</option>' +
+          '<option value="last-3">Last 3 months</option>' +
+          '<option value="last-6">Last 6 months</option>' +
+          '<option value="last-12">Last 12 months</option>' +
+          '<option value="current-year">Current year</option>' +
+          '<option value="previous-year">Previous year</option>' +
+          '<option value="all">All history</option>' +
+          '<option value="custom">Custom range</option>' +
+        '</select>' +
+        (state.period === 'custom'
+          ? '<input type="month" id="custom-from" aria-label="From" value="' + esc(state.customFrom || '') + '">' +
+            '<input type="month" id="custom-to" aria-label="To" value="' + esc(state.customTo || '') + '">'
+          : '');
+      bar.querySelector('#period-select').value = state.period;
+    }
+
+    /* ---------- Views ---------- */
+    function render() {
+      document.getElementById('view-title').textContent = VIEW_TITLES[state.view] || 'Dashboard';
+      document.querySelectorAll('.nav-btn, .bottom-nav button').forEach(function (btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-view') === state.view ||
+          (btn.getAttribute('data-view') === 'more' && (state.view === 'reports' || state.view === 'settings')));
+      });
+      renderPeriodBar();
+      var content = document.getElementById('content');
+      try {
+        if (state.view === 'dashboard') content.innerHTML = viewDashboard();
+        else if (state.view === 'bills') content.innerHTML = viewBills();
+        else if (state.view === 'utilities') content.innerHTML = viewUtilities();
+        else if (state.view === 'analytics') content.innerHTML = viewAnalytics();
+        else if (state.view === 'reports') content.innerHTML = viewReports();
+        else content.innerHTML = viewSettings();
+      } catch (err) {
+        content.innerHTML = '<div class="warn-banner">Something went wrong rendering this screen. Other records are still safe.</div>';
+        console.error(err);
+      }
+      drawViewCharts();
+    }
+
+    function emptyState() {
+      return '<div class="empty">' +
+        '<h3>Start tracking your utility bills</h3>' +
+        '<p class="muted">Add your first utility to begin monitoring your monthly costs and spending trends.</p>' +
+        '<div class="row" style="justify-content:center;margin-top:16px">' +
+          '<button class="btn btn-primary" data-action="open-utility-form">+ Add Utility</button>' +
+          '<button class="btn btn-secondary" data-action="load-demo">Load Demo Data</button>' +
+        '</div></div>';
+    }
+
+    function viewDashboard() {
+      if (!state.utilities.length) return emptyState();
+      var focus = Calc.focusMonth();
+      var prev = addMonths(focus.year, focus.month, -1);
+      var currentTotal = Calc.monthTotal(state.bills, focus.year, focus.month);
+      var prevTotal = Calc.monthTotal(state.bills, prev.year, prev.month);
+      var ch = Calc.change(currentTotal, prevTotal);
+      var pct = Calc.pct(currentTotal, prevTotal);
+      var kind = prevTotal == null ? 'na' : Calc.deltaKind(ch);
+      var range = Calc.periodRange();
+      var months = Calc.monthsWithData(state.bills, range.from, range.to);
+      var avgRange = months.length >= 2 ? range : { from: addMonths(focus.year, focus.month, -11), to: focus };
+      var avg = Calc.averageMonthly(state.bills, avgRange.from, avgRange.to);
+      var highRows = months.length >= 2 ? months : Calc.monthsWithData(state.bills, addMonths(focus.year, focus.month, -11), focus);
+      var highest = highRows.reduce(function (best, row) { return !best || row.total > best.total ? row : best; }, null);
+      var unpaid = state.bills.filter(function (b) { return b.status === 'unpaid'; }).reduce(function (s, b) { return s + b.amount; }, 0);
+      var paid = state.bills.filter(function (b) { return b.status === 'paid'; }).reduce(function (s, b) { return s + b.amount; }, 0);
+      var partial = state.bills.filter(function (b) { return b.status === 'partial'; }).reduce(function (s, b) { return s + b.amount; }, 0);
+      var s = state.settings;
+      var budgetHtml = '';
+      if (s.budgetEnabled && currentTotal != null) {
+        var remain = s.monthlyBudget - currentTotal;
+        budgetHtml = '<article class="card"><div class="kpi-label">Budget remaining</div>' +
+          '<div class="kpi-value">' + money(remain) + '</div>' +
+          (remain < 0
+            ? '<div class="delta up">Budget exceeded by ' + money(Math.abs(remain)) + '</div>'
+            : '<div class="tiny muted">Budget ' + money(s.monthlyBudget) + ' · Actual ' + money(currentTotal) + '</div>') +
+          '</article>';
+      }
+      var html = '';
+      if (s.demoData) html += '<div class="warn-banner">Demo data is loaded. It is sample information only — clear it anytime from Settings.</div>';
+      if (state.canInstall && !isStandalone()) {
+        html += '<div class="toolbar no-print"><button class="btn btn-primary" data-action="install-app">Install app</button><span class="tiny muted">Add Bill Tracker to this phone or computer.</span></div>';
+      }
+      html += '<div class="toolbar no-print"><button class="btn btn-secondary" data-action="share-month">Share month image</button></div>';
+      html += '<div class="grid kpis">' +
+        '<article class="card"><div class="kpi-label">Total this month</div>' +
+          '<div class="kpi-value">' + (currentTotal == null ? 'No data' : money(currentTotal)) + '</div>' +
+          '<div class="tiny muted">' + monthLabel(focus.year, focus.month) + '</div>' +
+          (currentTotal == null ? '' : deltaHtml(kind, ch, pct)) +
+        '</article>' +
+        '<article class="card"><div class="kpi-label">Previous month</div>' +
+          '<div class="kpi-value">' + (prevTotal == null ? 'No data' : money(prevTotal)) + '</div>' +
+          '<div class="tiny muted">' + monthLabel(prev.year, prev.month) + '</div></article>' +
+        (avg != null ? '<article class="card"><div class="kpi-label">Average monthly</div><div class="kpi-value">' + money(avg) + '</div><div class="tiny muted">' + (months.length >= 2 ? 'Months with recorded bills in this period' : 'Last 12 months with recorded bills') + '</div></article>' : '') +
+        (highest ? '<article class="card"><div class="kpi-label">Highest month</div><div class="kpi-value">' + money(highest.total) + '</div><div class="tiny muted">' + monthLabel(highest.year, highest.month) + '</div></article>' : '') +
+        '<article class="card"><div class="kpi-label">Unpaid</div><div class="kpi-value">' + money(unpaid) + '</div><div class="tiny muted">Paid ' + money(paid) + (partial ? ' · Partial ' + money(partial) : '') + '</div></article>' +
+        budgetHtml +
+      '</div>';
+
+      html += '<div class="grid split-2" style="margin-top:14px">' +
+        '<section class="card"><h3>Cost Intelligence</h3>' + costIntelligenceHtml(focus, currentTotal, prevTotal, avg) + '</section>' +
+        '<section class="card"><h3>Insights</h3>' + insightsHtml(focus, currentTotal, range) + '</section>' +
+      '</div>';
+
+      html += '<section class="card" style="margin-top:14px"><h3>Utility-by-utility</h3>' + utilitySnapshotHtml(focus) + '</section>';
+      html += '<div class="grid split-2" style="margin-top:14px">' +
+        '<section class="card"><h3>Monthly total spending</h3><div class="chart-box"><canvas id="chart-month-totals" role="img" aria-label="Monthly total spending chart"></canvas></div><p class="sr-only" id="chart-month-totals-desc"></p></section>' +
+        '<section class="card"><h3>Upcoming bills</h3><p class="tiny muted">Amounts are estimates based on previous bills, not actual charges.</p>' + upcomingHtml() + '</section>' +
+      '</div>';
+      html += dueSoonHtml();
+      return html;
+    }
+
+    function costIntelligenceHtml(focus, currentTotal, prevTotal, avg) {
+      var parts = [];
+      var drivers = [];
+      state.utilities.filter(function (u) { return u.active !== false; }).forEach(function (u) {
+        var cur = Calc.utilityMonthTotal(state.bills, u.id, focus.year, focus.month);
+        var prevM = addMonths(focus.year, focus.month, -1);
+        var prev = Calc.utilityMonthTotal(state.bills, u.id, prevM.year, prevM.month);
+        if (cur == null && prev == null) return;
+        var change = (cur || 0) - (prev || 0);
+        if (cur != null && prev != null) drivers.push({ u: u, cur: cur, prev: prev, change: change, pct: Calc.pct(cur, prev) });
+        else if (cur != null) drivers.push({ u: u, cur: cur, prev: prev, change: null, pct: null, neu: true });
+      });
+      var byAbs = drivers.filter(function (d) { return d.change != null; }).sort(function (a, b) { return Math.abs(b.change) - Math.abs(a.change); });
+      if (byAbs[0] && currentTotal != null && prevTotal != null) {
+        var d = byAbs[0];
+        var shareOfMove = (prevTotal === currentTotal) ? 0 : (d.change / ((currentTotal - prevTotal) || 1)) * 100;
+        parts.push('<div class="intel-item"><h4>What is driving the change</h4><p><strong>' + esc(d.u.name) + '</strong> ' +
+          (d.change > 0 ? 'increased' : d.change < 0 ? 'decreased' : 'was unchanged') + ' by ' +
+          money(Math.abs(d.change), { sign: false }) +
+          (d.pct == null ? ' (N/A vs a previous amount of zero or missing).' : ' (' + fmtPct(d.pct) + ').') +
+          (isFinite(shareOfMove) && prevTotal !== currentTotal ? ' This accounts for ' + Math.abs(shareOfMove).toFixed(0) + '% of the overall month-to-month movement.' : '') +
+          '</p></div>');
+      }
+      if (currentTotal != null && currentTotal > 0) {
+        var shares = drivers.filter(function (x) { return x.cur != null; }).sort(function (a, b) { return b.cur - a.cur; });
+        if (shares[0]) {
+          parts.push('<div class="intel-item"><h4>Share of household utilities</h4><p><strong>' + esc(shares[0].u.name) + '</strong> is ' +
+            ((shares[0].cur / currentTotal) * 100).toFixed(0) + '% of this month’s recorded spending (' + money(shares[0].cur) + ' of ' + money(currentTotal) + ').</p></div>');
+        }
+      }
+      if (currentTotal != null && avg != null && avg !== 0) {
+        var vsAvg = ((currentTotal - avg) / avg) * 100;
+        var anomaly = Math.abs(vsAvg) >= 10;
+        parts.push('<div class="intel-item"><h4>Anomaly or sustained level</h4><p>This month is ' + fmtPct(vsAvg) + ' versus the average of months that have bills in the selected period (' + money(avg) + '). ' +
+          (anomaly ? 'That is large enough to look like a one-month spike or dip rather than a typical month.' : 'That is close to your typical recorded month — more of a sustained level than a one-off.') +
+          '</p></div>');
+      }
+      var trailFrom = addMonths(focus.year, focus.month, -2);
+      var trail = Calc.averageMonthly(state.bills, trailFrom, focus);
+      if (trail != null) {
+        parts.push('<div class="intel-item"><h4>Likely going forward</h4><p><span class="est">Estimate</span> Average of the last 3 months with data: <strong>' + money(trail) + '</strong>. This is not a guaranteed next bill.</p></div>');
+      }
+      var trend = spendingTrend();
+      if (trend) parts.push('<div class="intel-item"><h4>Spending trend</h4><p>Recent recorded months look <strong>' + esc(trend) + '</strong>.</p></div>');
+      if (!parts.length) return '<p class="muted">Add bills for at least two months to see cost intelligence.</p>';
+      return parts.join('');
+    }
+
+    function spendingTrend() {
+      var r = Calc.periodRange();
+      var rows = Calc.monthsWithData(state.bills, r.from, r.to);
+      if (rows.length < 3) return null;
+      var last3 = rows.slice(-3);
+      var first = last3[0].total, last = last3[last3.length - 1].total;
+      if (first === 0) return last > 0 ? 'increasing' : 'stable';
+      var p = (last - first) / first;
+      if (p > 0.04) return 'increasing';
+      if (p < -0.04) return 'decreasing';
+      return 'stable';
+    }
+
+    function insightsHtml(focus, currentTotal, range) {
+      var items = [];
+      var changes = [];
+      state.utilities.forEach(function (u) {
+        var cur = Calc.utilityMonthTotal(state.bills, u.id, focus.year, focus.month);
+        var prevM = addMonths(focus.year, focus.month, -1);
+        var prev = Calc.utilityMonthTotal(state.bills, u.id, prevM.year, prevM.month);
+        if (cur == null || prev == null || prev === 0) return;
+        changes.push({ u: u, cur: cur, prev: prev, change: cur - prev, pct: Calc.pct(cur, prev) });
+      });
+      var up = changes.filter(function (c) { return c.change > 0; }).sort(function (a, b) { return b.pct - a.pct; })[0];
+      var down = changes.filter(function (c) { return c.change < 0; }).sort(function (a, b) { return a.pct - b.pct; })[0];
+      if (up) items.push('<div class="insight"><strong>' + esc(up.u.name) + '</strong> increased by ' + fmtPct(up.pct) + ' this month.</div>');
+      if (down) items.push('<div class="insight"><strong>' + esc(down.u.name) + '</strong> decreased by ' + fmtPct(Math.abs(down.pct)) + ' compared with last month.</div>');
+      if (currentTotal && currentTotal > 0) {
+        var top = null;
+        state.utilities.forEach(function (u) {
+          var cur = Calc.utilityMonthTotal(state.bills, u.id, focus.year, focus.month);
+          if (cur == null) return;
+          if (!top || cur > top.cur) top = { u: u, cur: cur };
+        });
+        if (top) items.push('<div class="insight"><strong>' + esc(top.u.name) + '</strong> represents ' + ((top.cur / currentTotal) * 100).toFixed(0) + '% of your current utility spending.</div>');
+      }
+      var avg = Calc.averageMonthly(state.bills, range.from, range.to);
+      if (avg != null) items.push('<div class="insight">Average monthly utility spending: <strong>' + money(avg) + '</strong></div>');
+      var billed = state.bills.slice().sort(function (a, b) { return b.amount - a.amount; });
+      if (billed[0]) {
+        var hiU = utilityById(billed[0].utilityId);
+        items.push('<div class="insight">Highest recorded bill: <strong>' + money(billed[0].amount) + '</strong> — ' + esc(hiU ? hiU.name : 'Unknown') + ', ' + monthLabel(billed[0].billingYear, billed[0].billingMonth) + '</div>');
+        var lo = billed[billed.length - 1];
+        var loU = utilityById(lo.utilityId);
+        items.push('<div class="insight">Lowest recorded bill: <strong>' + money(lo.amount) + '</strong> — ' + esc(loU ? loU.name : 'Unknown') + ', ' + monthLabel(lo.billingYear, lo.billingMonth) + '</div>');
+      }
+      if (!items.length) return '<p class="muted">Insights appear after you record bills.</p>';
+      return items.join('');
+    }
+
+    function utilitySnapshotHtml(focus) {
+      var prev = addMonths(focus.year, focus.month, -1);
+      var rows = state.utilities.filter(function (u) { return u.active !== false; }).map(function (u) {
+        var cur = Calc.utilityMonthTotal(state.bills, u.id, focus.year, focus.month);
+        var previous = Calc.utilityMonthTotal(state.bills, u.id, prev.year, prev.month);
+        var histFrom = addMonths(focus.year, focus.month, -5);
+        var months = [];
+        for (var i = 0; i < 6; i++) {
+          var mm = addMonths(histFrom.year, histFrom.month, i);
+          var t = Calc.utilityMonthTotal(state.bills, u.id, mm.year, mm.month);
+          if (t != null) months.push(t);
+        }
+        var avg = months.length ? months.reduce(function (a, b) { return a + b; }, 0) / months.length : null;
+        return { u: u, cur: cur, previous: previous, avg: avg, change: Calc.change(cur, previous), pct: Calc.pct(cur, previous), kind: previous == null || cur == null ? 'na' : Calc.deltaKind(Calc.change(cur, previous)) };
+      });
+      if (!rows.length) return '<p class="muted">No active utilities.</p>';
+      return '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">' + rows.map(function (r) {
+        return '<div class="card" style="box-shadow:none"><div class="util-chip">' + logoHtml(r.u) + '<strong>' + esc(r.u.name) + '</strong></div>' +
+          '<div class="tiny muted" style="margin:8px 0 4px">Current</div><div style="font-size:20px;font-weight:750">' + (r.cur == null ? 'No data' : money(r.cur)) + '</div>' +
+          '<div class="tiny muted">Previous: ' + (r.previous == null ? 'No data' : money(r.previous)) + '</div>' +
+          (r.cur == null ? '' : '<div style="margin-top:6px">' + deltaHtml(r.kind, r.change, r.pct) + '</div>') +
+          (r.avg != null ? '<div class="tiny muted" style="margin-top:8px">' + r.avg && monthsLabelAvg(r) + '</div>' : '') +
+          '<div style="margin-top:10px"><button class="btn btn-ghost" data-action="open-utility-history" data-id="' + esc(r.u.id) + '">History</button></div></div>';
+      }).join('') + '</div>';
+    }
+    function monthsLabelAvg(r) {
+      return '6-month average (months with data): ' + money(r.avg);
+    }
+
+    function upcomingHtml() {
+      var n = nowDate();
+      var items = state.utilities.filter(function (u) { return u.active !== false; }).map(function (u) {
+        var bills = state.bills.filter(function (b) { return b.utilityId === u.id; }).sort(function (a, b) {
+          return (b.billingYear * 12 + b.billingMonth) - (a.billingYear * 12 + a.billingMonth);
+        });
+        var last = bills[0];
+        if (!last) return null;
+        var due = null;
+        if (last.dueDate) {
+          var d = new Date(last.dueDate + 'T00:00:00');
+          d.setMonth(d.getMonth() + 1);
+          due = d;
+        }
+        var from = addMonths(last.billingYear, last.billingMonth, -2);
+        var est = Calc.averageMonthly(bills, from, { year: last.billingYear, month: last.billingMonth });
+        if (est == null) est = last.amount;
+        return { u: u, due: due, est: est, last: last };
+      }).filter(Boolean);
+      if (!items.length) return '<p class="muted">Upcoming estimates appear after you enter bills.</p>';
+      return items.map(function (it) {
+        return '<div class="intel-item"><div class="util-chip">' + logoHtml(it.u, 28) + '<div><strong>' + esc(it.u.name) + '</strong>' +
+          '<div class="tiny muted">Due: ' + (it.due ? formatDate(it.due.toISOString().slice(0, 10)) : 'No due date on last bill') + '</div>' +
+          '<div>Estimated / last bill: ' + money(it.est) + ' <span class="est">Estimate</span></div></div></div></div>';
+      }).join('');
+    }
+
+    function dueSoonHtml() {
+      var today = nowDate(); today.setHours(0,0,0,0);
+      var soon = state.bills.filter(function (b) {
+        if (!b.dueDate || b.status === 'paid' || b.status === 'na') return false;
+        var d = new Date(b.dueDate + 'T00:00:00');
+        var diff = (d - today) / 86400000;
+        return diff <= 14;
+      }).sort(function (a, b) { return a.dueDate.localeCompare(b.dueDate); });
+      if (!soon.length) return '';
+      return '<section class="card" style="margin-top:14px"><h3>Bills due soon</h3>' + soon.map(function (b) {
+        var u = utilityById(b.utilityId);
+        var d = new Date(b.dueDate + 'T00:00:00');
+        var overdue = d < today;
+        return '<div class="intel-item"><div class="util-chip">' + logoHtml(u, 28) + '<div><strong>' + esc(u ? u.name : 'Unknown') + '</strong> · ' + money(b.amount) +
+          '<div class="tiny ' + (overdue ? 'delta up' : 'muted') + '">' + (overdue ? 'Overdue ' : 'Due ') + formatDate(b.dueDate) + '</div></div></div></div>';
+      }).join('') + '</section>';
+    }
+
+    function viewBills() {
+      if (!state.utilities.length) return emptyState();
+      var s = state.settings;
+      var html = '<div class="toolbar">' +
+        '<button class="btn btn-primary" data-action="open-bill-form">+ Add bill</button>' +
+        '<button class="btn btn-secondary" data-action="copy-prev">Copy previous month</button>' +
+        '<button class="btn btn-secondary" data-action="share-month">Share month image</button>' +
+        '<div class="field grow"><label class="sr-only" for="bill-search">Search</label><input id="bill-search" type="search" placeholder="Search notes, utility…" value="' + esc(state.billSearch) + '"></div>' +
+        '<div class="field"><label class="sr-only" for="bill-util">Utility</label><select id="bill-util"><option value="">All utilities</option>' +
+          state.utilities.map(function (u) { return '<option value="' + esc(u.id) + '"' + (state.billUtility === u.id ? ' selected' : '') + '>' + esc(u.name) + '</option>'; }).join('') +
+        '</select></div>' +
+        '<div class="field"><label class="sr-only" for="bill-status">Status</label><select id="bill-status">' +
+          '<option value="">All statuses</option>' +
+          '<option value="unpaid"' + (state.billStatus === 'unpaid' ? ' selected' : '') + '>Unpaid</option>' +
+          '<option value="paid"' + (state.billStatus === 'paid' ? ' selected' : '') + '>Paid</option>' +
+          '<option value="partial"' + (state.billStatus === 'partial' ? ' selected' : '') + '>Partially Paid</option>' +
+          '<option value="na"' + (state.billStatus === 'na' ? ' selected' : '') + '>Not Applicable</option></select></div>' +
+        '<div class="field"><label class="sr-only" for="bill-change">Change</label><select id="bill-change">' +
+          '<option value="">All changes</option>' +
+          '<option value="up"' + (state.billChange === 'up' ? ' selected' : '') + '>Increases</option>' +
+          '<option value="down"' + (state.billChange === 'down' ? ' selected' : '') + '>Reductions</option>' +
+          '<option value="flat"' + (state.billChange === 'flat' ? ' selected' : '') + '>No change</option>' +
+          '<option value="na"' + (state.billChange === 'na' ? ' selected' : '') + '>New / N/A</option></select></div>' +
+      '</div>';
+      var list = filteredBills();
+      if (!list.length) {
+        html += '<div class="empty"><h3>No bills match</h3><p class="muted">Try a different filter, or add a bill for ' + monthLabel(s.lastBillingYear, s.lastBillingMonth) + '.</p></div>';
+        return html;
+      }
+      html += '<div class="table-wrap desktop-table"><table><thead><tr>' +
+        '<th>Utility</th><th>Billing month</th><th>Amount</th><th>Previous</th><th>Change</th><th>%</th><th>Status</th><th>Due</th><th>Notes</th><th></th></tr></thead><tbody>';
+      html += list.map(function (b) {
+        var u = utilityById(b.utilityId) || { name: 'Unknown', color: '#64748b' };
+        var a = Calc.annotateBill(b);
+        return '<tr>' +
+          '<td><div class="util-chip">' + logoHtml(u, 28) + esc(u.name) + '</div></td>' +
+          '<td>' + monthLabel(b.billingYear, b.billingMonth, true) + '</td>' +
+          '<td>' + money(b.amount) + '</td>' +
+          '<td>' + (a.previous == null ? 'No data' : money(a.previous)) + '</td>' +
+          '<td class="delta ' + (a.kind === 'na' ? 'flat' : a.kind) + '">' + (a.kind === 'na' ? 'New cost' : Calc.deltaIcon(a.kind) + ' ' + money(a.change, { sign: true })) + '</td>' +
+          '<td>' + (a.pct == null ? 'N/A' : fmtPct(a.pct)) + '</td>' +
+          '<td><span class="badge ' + esc(b.status) + '">' + esc(STATUS_LABEL[b.status] || b.status) + '</span></td>' +
+          '<td>' + formatDate(b.dueDate) + '</td>' +
+          '<td>' + esc(b.notes || '') + '</td>' +
+          '<td class="actions"><button class="btn btn-ghost" data-action="edit-bill" data-id="' + esc(b.id) + '">Edit</button><button class="btn btn-ghost" data-action="delete-bill" data-id="' + esc(b.id) + '">Delete</button></td>' +
+        '</tr>';
+      }).join('');
+      html += '</tbody></table></div>';
+      html += '<div class="bill-cards">' + list.map(function (b) {
+        var u = utilityById(b.utilityId) || { name: 'Unknown', color: '#64748b' };
+        var a = Calc.annotateBill(b);
+        return '<article class="card"><div class="util-chip">' + logoHtml(u) + '<div><strong>' + esc(u.name) + '</strong><div class="tiny muted">' + monthLabel(b.billingYear, b.billingMonth) + '</div></div></div>' +
+          '<div style="margin-top:10px">Current bill: <strong>' + money(b.amount) + '</strong></div>' +
+          '<div class="tiny muted">Previous bill: ' + (a.previous == null ? 'No data' : money(a.previous)) + '</div>' +
+          '<div style="margin-top:6px">' + deltaHtml(a.kind, a.change, a.pct) + '</div>' +
+          '<div style="margin-top:8px"><span class="badge ' + esc(b.status) + '">' + esc(STATUS_LABEL[b.status] || b.status) + '</span> · Due ' + formatDate(b.dueDate) + '</div>' +
+          (b.notes ? '<p class="tiny muted">' + esc(b.notes) + '</p>' : '') +
+          '<div class="row" style="margin-top:8px"><button class="btn btn-secondary" data-action="edit-bill" data-id="' + esc(b.id) + '">Edit</button><button class="btn btn-ghost" data-action="delete-bill" data-id="' + esc(b.id) + '">Delete</button></div></article>';
+      }).join('') + '</div>';
+      return html;
+    }
+    function filteredBills() {
+      var q = state.billSearch.trim().toLowerCase();
+      return state.bills.slice().filter(function (b) {
+        var u = utilityById(b.utilityId);
+        if (state.billUtility && b.utilityId !== state.billUtility) return false;
+        if (state.billStatus && b.status !== state.billStatus) return false;
+        var a = Calc.annotateBill(b);
+        if (state.billChange && a.kind !== state.billChange) return false;
+        if (q) {
+          var hay = ((u && u.name) || '') + ' ' + (b.notes || '') + ' ' + (u && u.accountNumber || '');
+          if (hay.toLowerCase().indexOf(q) === -1) return false;
+        }
+        return true;
+      }).sort(function (a, b) {
+        return (b.billingYear * 12 + b.billingMonth) - (a.billingYear * 12 + a.billingMonth) || ((utilityById(a.utilityId) || {}).name || '').localeCompare((utilityById(b.utilityId) || {}).name || '');
+      });
+    }
+
+    function viewUtilities() {
+      var html = '<div class="toolbar"><button class="btn btn-primary" data-action="open-utility-form">+ Add Utility</button></div>';
+      if (!state.utilities.length) return emptyState();
+      html += '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">' + state.utilities.map(function (u) {
+        return '<article class="card util-card">' + logoHtml(u, 48) +
+          '<div class="meta"><strong>' + esc(u.name) + '</strong>' +
+          (u.accountNumber ? '<div class="tiny muted">Account ' + esc(u.accountNumber) + '</div>' : '') +
+          (u.description ? '<div class="tiny muted">' + esc(u.description) + '</div>' : '') +
+          '<div style="margin-top:6px"><span class="badge ' + (u.active === false ? 'na' : 'paid') + '">' + (u.active === false ? 'Inactive' : 'Active') + '</span></div>' +
+          '<div class="row" style="margin-top:10px">' +
+            '<button class="btn btn-secondary" data-action="edit-utility" data-id="' + esc(u.id) + '">Edit</button>' +
+            '<button class="btn btn-ghost" data-action="open-utility-history" data-id="' + esc(u.id) + '">History</button>' +
+            '<button class="btn btn-ghost" data-action="delete-utility" data-id="' + esc(u.id) + '">Delete</button>' +
+          '</div></div></article>';
+      }).join('') + '</div>';
+      return html;
+    }
+
+    function viewAnalytics() {
+      if (!state.bills.length) return '<div class="empty"><h3>Not enough data for analytics</h3><p class="muted">Add bills across a few months to see trends.</p><button class="btn btn-primary" data-action="nav" data-view="bills">Add bills</button></div>';
+      var focus = Calc.focusMonth();
+      var yoy = addMonths(focus.year, focus.month, -12);
+      var cur = Calc.monthTotal(state.bills, focus.year, focus.month);
+      var lastYear = Calc.monthTotal(state.bills, yoy.year, yoy.month);
+      var html = '<div class="grid split-2">' +
+        '<section class="card"><h3>Monthly total spending</h3><div class="chart-box"><canvas id="chart-analytics-totals" role="img" aria-label="Monthly totals"></canvas></div></section>' +
+        '<section class="card"><h3>Utility trend</h3>' +
+          '<label class="sr-only" for="trend-util">Utility</label><select id="trend-util">' +
+            state.utilities.map(function (u) { return '<option value="' + esc(u.id) + '"' + (state.trendUtilityId === u.id ? ' selected' : '') + '>' + esc(u.name) + '</option>'; }).join('') +
+          '</select>' +
+          '<div class="chart-box" style="margin-top:10px"><canvas id="chart-util-trend" role="img" aria-label="Utility cost trend"></canvas></div></section>' +
+      '</div>';
+      html += '<div class="grid split-2" style="margin-top:14px">' +
+        '<section class="card"><h3>Month-over-month % change</h3><div class="chart-box"><canvas id="chart-pct" role="img" aria-label="Percentage change"></canvas></div><p class="tiny muted">N/A months (missing or zero previous totals) are omitted so the chart is not misleading.</p></section>' +
+        '<section class="card"><h3>Utility contribution</h3><div class="chart-box"><canvas id="chart-contrib" role="img" aria-label="Contribution by utility"></canvas></div></section>' +
+      '</div>';
+      html += '<section class="card" style="margin-top:14px"><h3>Year-over-year</h3>';
+      if (cur == null || lastYear == null) {
+        html += '<p class="muted">Need a recorded total for ' + monthLabel(focus.year, focus.month) + ' and ' + monthLabel(yoy.year, yoy.month) + '.</p>';
+      } else {
+        var yp = Calc.pct(cur, lastYear);
+        html += '<div class="grid kpis"><article><div class="kpi-label">' + monthLabel(focus.year, focus.month) + '</div><div class="kpi-value">' + money(cur) + '</div></article>' +
+          '<article><div class="kpi-label">' + monthLabel(yoy.year, yoy.month) + '</div><div class="kpi-value">' + money(lastYear) + '</div></article>' +
+          '<article><div class="kpi-label">Change</div><div class="kpi-value">' + money(cur - lastYear, { sign: true }) + '</div>' +
+          '<div>' + (yp == null ? 'N/A' : fmtPct(yp)) + '</div></article></div>';
+      }
+      html += '</section>';
+      html += '<section class="card" style="margin-top:14px"><h3>Monthly grid</h3><p class="tiny muted">Blank cells mean no bill was recorded — not a $0 cost.</p>' + monthlyGridHtml() + '</section>';
+      return html;
+    }
+
+    function monthlyGridHtml() {
+      var range = Calc.periodRange();
+      var months = Calc.monthsInRange(range.from, range.to);
+      if (months.length > 18) months = months.slice(-18);
+      var utils = state.utilities.filter(function (u) { return u.active !== false; });
+      var head = '<th>Utility</th>' + months.map(function (m) { return '<th>' + MONTHS_SHORT[m.month - 1] + ' ' + String(m.year).slice(2) + '</th>'; }).join('');
+      var body = utils.map(function (u) {
+        return '<tr><td><div class="util-chip">' + logoHtml(u, 24) + esc(u.name) + '</div></td>' + months.map(function (m) {
+          var t = Calc.utilityMonthTotal(state.bills, u.id, m.year, m.month);
+          return '<td>' + (t == null ? '' : money(t)) + '</td>';
+        }).join('') + '</tr>';
+      }).join('');
+      var totals = '<tr><th>TOTAL</th>' + months.map(function (m) {
+        var t = Calc.monthTotal(state.bills, m.year, m.month);
+        return '<th>' + (t == null ? '' : money(t)) + '</th>';
+      }).join('') + '</tr>';
+      return '<div class="table-wrap"><table class="grid-table"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody><tfoot>' + totals + '</tfoot></table></div>';
+    }
+
+    function viewReports() {
+      var range = Calc.periodRange();
+      var focus = Calc.focusMonth();
+      var months = Calc.monthsWithData(state.bills, range.from, range.to);
+      var sum = months.reduce(function (s, r) { return s + r.total; }, 0);
+      var html = '<div class="toolbar no-print">' +
+        '<button class="btn btn-primary" data-action="print">Generate Report</button>' +
+        '<button class="btn btn-secondary" data-action="share-month">Share month image</button>' +
+        '<button class="btn btn-secondary" data-action="export-csv">Export CSV</button>' +
+        '<button class="btn btn-secondary" data-action="export-json">Export JSON</button>' +
+      '</div>';
+      html += '<article class="card" id="print-report"><h3>Utility spending report</h3>' +
+        '<p class="muted">Period: ' + monthLabel(range.from.year, range.from.month) + ' – ' + monthLabel(range.to.year, range.to.month) +
+        '<br>Generated ' + formatDate(nowDate().toISOString().slice(0, 10)) + ' · Currency ' + esc(state.settings.currency) + ' (display only, no conversion)</p>' +
+        '<div class="grid kpis"><article><div class="kpi-label">Total in period</div><div class="kpi-value">' + money(sum) + '</div><div class="tiny muted">' + months.length + ' month(s) with data</div></article>' +
+        '<article><div class="kpi-label">Focus month</div><div class="kpi-value">' + (Calc.monthTotal(state.bills, focus.year, focus.month) == null ? 'No data' : money(Calc.monthTotal(state.bills, focus.year, focus.month))) + '</div><div class="tiny muted">' + monthLabel(focus.year, focus.month) + '</div></article></div>' +
+        '<h3 style="margin-top:18px">Breakdown</h3>' + monthlyGridHtml() +
+        '<h3 style="margin-top:18px">Month-to-month</h3>' + momTableHtml(months) +
+        '<h3 style="margin-top:18px">Payment status</h3>' + paymentReportHtml() +
+        '<h3 style="margin-top:18px">Key insights</h3>' + insightsHtml(focus, Calc.monthTotal(state.bills, focus.year, focus.month), range) +
+        '<div class="chart-box" style="margin-top:16px"><canvas id="chart-report" role="img" aria-label="Report totals chart"></canvas></div>' +
+        '<p class="tiny muted" style="margin-top:16px">Your data is stored locally on this device.</p></article>';
+      return html;
+    }
+    function momTableHtml(months) {
+      if (!months.length) return '<p class="muted">No months with recorded bills in this period.</p>';
+      var rows = months.map(function (row, i) {
+        var prev = i ? months[i - 1] : null;
+        var prevVal = prev ? prev.total : Calc.monthTotal(state.bills, addMonths(row.year, row.month, -1).year, addMonths(row.year, row.month, -1).month);
+        var ch = Calc.change(row.total, prevVal);
+        var pct = Calc.pct(row.total, prevVal);
+        var kind = prevVal == null ? 'na' : Calc.deltaKind(ch);
+        return '<tr><td>' + monthLabel(row.year, row.month, true) + '</td><td>' + money(row.total) + '</td><td>' + (prevVal == null ? 'No data' : money(prevVal)) + '</td><td>' + (kind === 'na' ? 'New / N/A' : Calc.deltaIcon(kind) + ' ' + money(ch, { sign: true })) + '</td><td>' + (pct == null ? 'N/A' : fmtPct(pct)) + '</td></tr>';
+      }).join('');
+      return '<div class="table-wrap"><table><thead><tr><th>Month</th><th>Total</th><th>Previous</th><th>Change</th><th>%</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    }
+    function paymentReportHtml() {
+      var groups = { paid: 0, unpaid: 0, partial: 0, na: 0 };
+      state.bills.forEach(function (b) { if (groups[b.status] != null) groups[b.status] += b.amount; });
+      return '<p>Paid: <strong>' + money(groups.paid) + '</strong> · Unpaid: <strong>' + money(groups.unpaid) + '</strong> · Partially paid: <strong>' + money(groups.partial) + '</strong></p>';
+    }
+
+    function isStandalone() {
+      return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+        window.navigator.standalone === true;
+    }
+    function installSettingsHtml() {
+      var secure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      var body = '';
+      if (isStandalone()) {
+        body = '<p>This app is already installed on this device. Open it from the home screen or app drawer.</p>';
+      } else if (state.canInstall) {
+        body = '<p>Chrome can install Bill Tracker on this device. It will open full-screen with its own icon. Your bills stay on this phone or computer.</p>' +
+          '<button class="btn btn-primary" data-action="install-app">Install app</button>';
+      } else {
+        body = '<p>On an Android phone, open this app in <strong>Chrome</strong> over <strong>https</strong> (or localhost), then use the menu:</p>' +
+          '<p><strong>⋮ → Add to Home screen</strong> or <strong>Install app</strong></p>' +
+          (secure
+            ? '<p class="tiny muted">If the Install button is missing, use Add to Home screen. After the first visit, Chrome can open the installed shortcut without the browser chrome.</p>'
+            : '<p class="tiny muted">This page is not on https or localhost, so Chrome will not offer a reliable install. Host the folder on a static https site, then open that URL on the phone.</p>');
+      }
+      return '<section class="card" style="margin-top:14px"><h3>Install on Android</h3>' + body + '</section>';
+    }
+    function viewSettings() {
+      var s = state.settings;
+      return '<div class="grid split-2">' +
+        '<section class="card"><h3>Preferences</h3>' +
+          '<div class="field"><label for="set-currency">Currency</label><select id="set-currency">' +
+            Object.keys(CURRENCIES).map(function (c) { return '<option value="' + c + '"' + (s.currency === c ? ' selected' : '') + '>' + c + ' · ' + CURRENCIES[c].name + '</option>'; }).join('') +
+          '</select><div class="hint">Changes how amounts are displayed. No conversion is performed.</div></div>' +
+          '<div class="field"><label for="set-theme">Theme</label><select id="set-theme">' +
+            '<option value="light"' + (s.theme === 'light' ? ' selected' : '') + '>Light</option>' +
+            '<option value="dark"' + (s.theme === 'dark' ? ' selected' : '') + '>Dark</option></select></div>' +
+          '<div class="field"><label for="set-date">Date format</label><select id="set-date">' +
+            '<option value="dd-mmm-yyyy"' + (s.dateFormat === 'dd-mmm-yyyy' ? ' selected' : '') + '>05 Sep 2026</option>' +
+            '<option value="dd/mm/yyyy"' + (s.dateFormat === 'dd/mm/yyyy' ? ' selected' : '') + '>05/09/2026</option>' +
+            '<option value="mm/dd/yyyy"' + (s.dateFormat === 'mm/dd/yyyy' ? ' selected' : '') + '>09/05/2026</option>' +
+            '<option value="yyyy-mm-dd"' + (s.dateFormat === 'yyyy-mm-dd' ? ' selected' : '') + '>2026-09-05</option></select></div>' +
+          '<div class="field"><label for="set-decimals">Decimal places</label><select id="set-decimals">' +
+            '<option value="0"' + (+s.decimalPlaces === 0 ? ' selected' : '') + '>0</option>' +
+            '<option value="2"' + (+s.decimalPlaces !== 0 ? ' selected' : '') + '>2</option></select></div>' +
+          '<label class="checkline"><input type="checkbox" id="set-grouping"' + (s.grouping !== false ? ' checked' : '') + '> Use thousands separators</label>' +
+        '</section>' +
+        '<section class="card"><h3>Monthly budget</h3>' +
+          '<label class="checkline"><input type="checkbox" id="set-budget-on"' + (s.budgetEnabled ? ' checked' : '') + '> Enable budget tracking</label>' +
+          '<div class="field" style="margin-top:12px"><label for="set-budget">Monthly utility budget</label>' +
+          '<input id="set-budget" type="number" min="0" step="0.01" value="' + esc(s.monthlyBudget || 0) + '"' + (s.budgetEnabled ? '' : ' disabled') + '></div>' +
+          '<p class="tiny muted">Compared with the focus month total on the dashboard.</p>' +
+        '</section></div>' +
+        '<section class="card" style="margin-top:14px"><h3>Backup and restore</h3>' +
+          '<p class="privacy">Your data is stored locally on this device. Clearing site data in the browser can erase it. Export a JSON backup and keep it somewhere safe.</p>' +
+          '<div class="row" style="margin-top:12px">' +
+            '<button class="btn btn-primary" data-action="export-json">Export JSON</button>' +
+            '<button class="btn btn-secondary" data-action="import-json">Import JSON</button>' +
+            '<button class="btn btn-secondary" data-action="export-csv">Export CSV</button>' +
+            '<input id="import-file" type="file" accept="application/json,.json" hidden>' +
+          '</div>' +
+          '<div class="row" style="margin-top:16px">' +
+            '<button class="btn btn-secondary" data-action="load-demo">Load demo data</button>' +
+            '<button class="btn btn-danger" data-action="clear-all">Clear all data</button>' +
+          '</div>' +
+        '</section>' +
+        installSettingsHtml() +
+        '<p class="tiny muted" style="margin-top:16px">Utility Bill Tracker · offline personal-finance tracker · no account required</p>';
+    }
+
+    function drawViewCharts() {
+      var range = Calc.periodRange();
+      var months = Calc.monthsInRange(range.from, range.to);
+      if (months.length > 18) months = months.slice(-18);
+      var totals = months.map(function (m) {
+        return { label: MONTHS_SHORT[m.month - 1], value: Calc.monthTotal(state.bills, m.year, m.month) };
+      });
+      var c1 = document.getElementById('chart-month-totals');
+      if (c1) drawBarLine(c1, totals, { line: true });
+      var cR = document.getElementById('chart-report');
+      if (cR) drawBarLine(cR, totals, { line: true });
+      var cA = document.getElementById('chart-analytics-totals');
+      if (cA) drawBarLine(cA, totals, { line: true });
+      var cT = document.getElementById('chart-util-trend');
+      if (cT) {
+        if (!state.trendUtilityId && state.utilities[0]) state.trendUtilityId = state.utilities[0].id;
+        var uidTrend = state.trendUtilityId;
+        var pts = months.map(function (m) {
+          return { label: MONTHS_SHORT[m.month - 1], value: Calc.utilityMonthTotal(state.bills, uidTrend, m.year, m.month) };
+        });
+        drawBarLine(cT, pts, { line: true });
+      }
+      var cP = document.getElementById('chart-pct');
+      if (cP) {
+        var pctPts = [];
+        months.forEach(function (m) {
+          var cur = Calc.monthTotal(state.bills, m.year, m.month);
+          var p = addMonths(m.year, m.month, -1);
+          var prev = Calc.monthTotal(state.bills, p.year, p.month);
+          var pct = Calc.pct(cur, prev);
+          if (pct != null) pctPts.push({ label: MONTHS_SHORT[m.month - 1], value: pct });
+        });
+        drawBarLine(cP, pctPts.length ? pctPts : [{ label: '—', value: 0 }], { line: false });
+      }
+      var cC = document.getElementById('chart-contrib');
+      if (cC) {
+        var focus = Calc.focusMonth();
+        var palette = ['#0f766e','#2563eb','#b54708','#7c3aed','#be123c','#0ea5e9','#65a30d','#db2777'];
+        var slices = [];
+        state.utilities.forEach(function (u, i) {
+          var t = Calc.utilityMonthTotal(state.bills, u.id, focus.year, focus.month);
+          if (t) slices.push({ label: u.name, value: t, color: u.color || palette[i % palette.length] });
+        });
+        if (slices.length) drawDonut(cC, slices);
+      }
+    }
+
+    /* ---------- Forms ---------- */
+    function utilityForm(existing) {
+      var u = existing || { name: '', accountNumber: '', description: '', color: '#0f766e', active: true, logo: '' };
+      openModal({
+        title: existing ? 'Edit utility' : 'Add utility',
+        body:
+          '<div class="field"><label for="u-name">Utility / bill name</label><input id="u-name" required value="' + esc(u.name) + '"></div>' +
+          '<div class="field"><label for="u-acct">Account number <span class="hint">(optional)</span></label><input id="u-acct" value="' + esc(u.accountNumber || '') + '"></div>' +
+          '<div class="field"><label for="u-desc">Description <span class="hint">(optional)</span></label><textarea id="u-desc">' + esc(u.description || '') + '</textarea></div>' +
+          '<div class="field"><label for="u-color">Color</label><div class="color-row"><input id="u-color" type="color" value="' + esc(u.color || '#0f766e') + '"><span class="tiny muted">Used when no logo is shown</span></div></div>' +
+          '<div class="field"><label for="u-logo">Company logo <span class="hint">(optional PNG, JPG, WEBP, SVG)</span></label><input id="u-logo" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg">' +
+          (u.logo ? '<div class="row" style="margin-top:8px">' + logoHtml(u, 40) + '<button type="button" class="btn btn-ghost" id="u-logo-clear">Remove logo</button></div>' : '') +
+          '</div>' +
+          '<label class="checkline"><input id="u-active" type="checkbox"' + (u.active !== false ? ' checked' : '') + '> Active</label>' +
+          '<input type="hidden" id="u-id" value="' + esc(u.id || '') + '">' +
+          '<input type="hidden" id="u-logo-data" value="">',
+        footer: '<button class="btn btn-secondary" data-action="close-modal">Cancel</button><button class="btn btn-primary" data-action="save-utility">Save</button>'
+      });
+      if (u.logo) document.getElementById('u-logo-data').value = 'KEEP';
+      var file = document.getElementById('u-logo');
+      file.addEventListener('change', async function () {
+        try {
+          if (!file.files[0]) return;
+          var data = await processLogo(file.files[0]);
+          document.getElementById('u-logo-data').value = data || '';
+          toast('Logo ready');
+        } catch (e) {
+          file.value = '';
+          toast(e.message || 'Could not use that image');
+        }
+      });
+      var clr = document.getElementById('u-logo-clear');
+      if (clr) clr.addEventListener('click', function () { document.getElementById('u-logo-data').value = 'CLEAR'; toast('Logo will be removed on save'); });
+    }
+
+    async function saveUtility() {
+      var name = (document.getElementById('u-name').value || '').trim();
+      if (!name) { toast('Utility name cannot be blank.'); return; }
+      var id = document.getElementById('u-id').value || uid();
+      var existing = utilityById(id);
+      var logo = existing && existing.logo;
+      var flag = document.getElementById('u-logo-data').value;
+      if (flag === 'CLEAR') logo = '';
+      else if (flag && flag !== 'KEEP') logo = flag;
+      var rec = {
+        id: id,
+        name: name,
+        accountNumber: (document.getElementById('u-acct').value || '').trim(),
+        description: (document.getElementById('u-desc').value || '').trim(),
+        color: document.getElementById('u-color').value || '#0f766e',
+        logo: logo || '',
+        active: document.getElementById('u-active').checked,
+        createdAt: (existing && existing.createdAt) || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      await storePut('utilities', rec);
+      closeModal();
+      await loadAll();
+      toast('Utility saved');
+      if (state.view === 'dashboard' && !existing) state.view = 'utilities';
+      render();
+    }
+
+    function billForm(existing) {
+      var s = state.settings;
+      var n = nowDate();
+      var b = existing || {
+        utilityId: s.lastUtilityId || (state.utilities[0] && state.utilities[0].id) || '',
+        billingMonth: s.lastBillingMonth || (n.getMonth() + 1),
+        billingYear: s.lastBillingYear || n.getFullYear(),
+        amount: '',
+        status: 'unpaid',
+        dueDate: '',
+        paidDate: '',
+        notes: ''
+      };
+      var utils = state.utilities.filter(function (u) { return u.active !== false || (existing && existing.utilityId === u.id); });
+      openModal({
+        title: existing ? 'Edit bill' : 'Add bill',
+        body:
+          '<div class="field"><label for="b-util">Utility</label><select id="b-util">' +
+            utils.map(function (u) { return '<option value="' + esc(u.id) + '"' + (b.utilityId === u.id ? ' selected' : '') + '>' + esc(u.name) + '</option>'; }).join('') +
+          '</select></div>' +
+          '<div class="row"><div class="field grow"><label for="b-month">Billing month</label><select id="b-month">' + monthOptions(+b.billingMonth) + '</select></div>' +
+          '<div class="field grow"><label for="b-year">Billing year</label><select id="b-year">' + yearOptions(+b.billingYear) + '</select></div></div>' +
+          '<div class="field"><label for="b-amt">Bill amount</label><input id="b-amt" type="number" min="0" step="0.01" required value="' + esc(b.amount === '' ? '' : b.amount) + '"></div>' +
+          '<div class="field"><label for="b-status">Payment status</label><select id="b-status">' +
+            '<option value="unpaid">Unpaid</option><option value="paid">Paid</option><option value="partial">Partially Paid</option><option value="na">Not Applicable</option></select></div>' +
+          '<div class="row"><div class="field grow"><label for="b-due">Due date <span class="hint">(optional)</span></label><input id="b-due" type="date" value="' + esc(b.dueDate || '') + '"></div>' +
+          '<div class="field grow"><label for="b-paid">Date paid <span class="hint">(optional)</span></label><input id="b-paid" type="date" value="' + esc(b.paidDate || '') + '"></div></div>' +
+          '<div class="field"><label for="b-notes">Notes <span class="hint">(optional)</span></label><textarea id="b-notes" placeholder="Higher this month because AC usage increased.">' + esc(b.notes || '') + '</textarea></div>' +
+          '<input type="hidden" id="b-id" value="' + esc(b.id || '') + '">',
+        footer: '<button class="btn btn-secondary" data-action="close-modal">Cancel</button><button class="btn btn-primary" data-action="save-bill">Save</button>'
+      });
+      document.getElementById('b-status').value = b.status || 'unpaid';
+    }
+
+    function readBillForm() {
+      return {
+        id: document.getElementById('b-id').value,
+        utilityId: document.getElementById('b-util').value,
+        billingMonth: +document.getElementById('b-month').value,
+        billingYear: +document.getElementById('b-year').value,
+        amount: document.getElementById('b-amt').value,
+        status: document.getElementById('b-status').value,
+        dueDate: document.getElementById('b-due').value,
+        paidDate: document.getElementById('b-paid').value,
+        notes: document.getElementById('b-notes').value
+      };
+    }
+    async function saveBill(forceDup) {
+      var draft = readBillForm();
+      var utilityId = draft.utilityId;
+      var month = +draft.billingMonth;
+      var year = +draft.billingYear;
+      var amount = +draft.amount;
+      var id = draft.id || uid();
+      if (!utilityId) { toast('Choose a utility.'); return; }
+      if (!(month >= 1 && month <= 12) || !isFinite(year)) { toast('Billing month must be valid.'); return; }
+      if (!isFinite(amount) || amount < 0) { toast('Bill amount cannot be negative.'); return; }
+      if (draft.amount === '') { toast('Enter a bill amount. Use 0 if the bill was actually zero.'); return; }
+      var due = draft.dueDate;
+      var paid = draft.paidDate;
+      if (due && Number.isNaN(Date.parse(due))) { toast('Due date is not valid.'); return; }
+      if (paid && Number.isNaN(Date.parse(paid))) { toast('Paid date is not valid.'); return; }
+      var dup = state.bills.some(function (b) {
+        return b.id !== id && b.utilityId === utilityId && b.billingMonth === month && b.billingYear === year;
+      });
+      if (dup && !forceDup) {
+        var ok = await confirmModal('Bill already exists', 'A bill for this utility and month is already recorded. Create another record anyway?', 'Create another');
+        if (!ok) { billForm(draft); return; }
+      }
+      var existing = state.bills.find(function (b) { return b.id === id; });
+      var rec = {
+        id: id,
+        utilityId: utilityId,
+        billingMonth: month,
+        billingYear: year,
+        yearMonth: ymKey(year, month),
+        amount: amount,
+        status: draft.status,
+        dueDate: due || '',
+        paidDate: paid || '',
+        notes: (draft.notes || '').trim(),
+        createdAt: (existing && existing.createdAt) || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      await storePut('bills', rec);
+      state.settings.lastUtilityId = utilityId;
+      state.settings.lastBillingMonth = month;
+      state.settings.lastBillingYear = year;
+      await saveSettings();
+      closeModal();
+      await loadAll();
+      toast('Bill saved');
+      render();
+    }
+
+    function copyPrevForm() {
+      var s = state.settings;
+      openModal({
+        title: 'Copy previous month',
+        body: '<p class="muted">Copies last month’s bills into the target month so you only adjust amounts that changed. Existing utility/month pairs are skipped.</p>' +
+          '<div class="row"><div class="field grow"><label for="cp-month">Target month</label><select id="cp-month">' + monthOptions(s.lastBillingMonth) + '</select></div>' +
+          '<div class="field grow"><label for="cp-year">Target year</label><select id="cp-year">' + yearOptions(s.lastBillingYear) + '</select></div></div>',
+        footer: '<button class="btn btn-secondary" data-action="close-modal">Cancel</button><button class="btn btn-primary" data-action="do-copy-prev">Copy</button>'
+      });
+    }
+    async function doCopyPrev() {
+      var tm = +document.getElementById('cp-month').value;
+      var ty = +document.getElementById('cp-year').value;
+      var src = addMonths(ty, tm, -1);
+      var source = state.bills.filter(function (b) { return b.billingMonth === src.month && b.billingYear === src.year; });
+      if (!source.length) { toast('No bills found in ' + monthLabel(src.year, src.month) + '.'); return; }
+      var copied = 0, skipped = 0;
+      for (var i = 0; i < source.length; i++) {
+        var b = source[i];
+        var exists = state.bills.some(function (x) { return x.utilityId === b.utilityId && x.billingMonth === tm && x.billingYear === ty; });
+        if (exists) { skipped++; continue; }
+        var rec = {
+          id: uid(),
+          utilityId: b.utilityId,
+          billingMonth: tm,
+          billingYear: ty,
+          yearMonth: ymKey(ty, tm),
+          amount: b.amount,
+          status: 'unpaid',
+          dueDate: '',
+          paidDate: '',
+          notes: b.notes || '',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        await storePut('bills', rec);
+        copied++;
+      }
+      closeModal();
+      await loadAll();
+      toast('Copied ' + copied + (skipped ? ', skipped ' + skipped + ' existing' : ''));
+      render();
+    }
+
+    function showUtilityHistory(id) {
+      var u = utilityById(id);
+      if (!u) return;
+      var bills = state.bills.filter(function (b) { return b.utilityId === id; }).sort(function (a, b) {
+        return (b.billingYear * 12 + b.billingMonth) - (a.billingYear * 12 + a.billingMonth);
+      });
+      var body = !bills.length ? '<p class="muted">No bills recorded yet.</p>' :
+        '<div class="table-wrap"><table><thead><tr><th>Month</th><th>Amount</th><th>Previous</th><th>Change</th><th>%</th><th>Status</th><th>Notes</th></tr></thead><tbody>' +
+        bills.map(function (b) {
+          var a = Calc.annotateBill(b);
+          return '<tr><td>' + monthLabel(b.billingYear, b.billingMonth, true) + '</td><td>' + money(b.amount) + '</td><td>' +
+            (a.previous == null ? 'No data' : money(a.previous)) + '</td><td>' + (a.kind === 'na' ? 'New cost' : Calc.deltaIcon(a.kind) + ' ' + money(a.change, { sign: true })) +
+            '</td><td>' + (a.pct == null ? 'N/A' : fmtPct(a.pct)) + '</td><td>' + esc(STATUS_LABEL[b.status]) + '</td><td>' + esc(b.notes || '') + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+      var from = addMonths(nowDate().getFullYear(), nowDate().getMonth() + 1, -2);
+      var lastBills = bills.slice(0, 3);
+      var est = lastBills.length >= 3 ? lastBills.reduce(function (s, b) { return s + b.amount; }, 0) / 3 : null;
+      openModal({
+        title: u.name + ' history',
+        body: '<div class="util-chip" style="margin-bottom:12px">' + logoHtml(u) + '<span class="tiny muted">' + esc(u.accountNumber || '') + '</span></div>' +
+          (est != null ? '<p><span class="est">Estimate</span> Next bill (avg of previous 3): <strong>' + money(est) + '</strong></p>' : '<p class="tiny muted">Estimated next bill appears after 3 recorded months.</p>') +
+          body,
+        footer: '<button class="btn btn-primary" data-action="close-modal">Close</button>'
+      });
+    }
+
+    /* ---------- Backup ---------- */
+    function exportJson() {
+      var payload = {
+        app: 'utility-bill-tracker',
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        utilities: state.utilities,
+        bills: state.bills,
+        settings: state.settings
+      };
+      downloadFile('utility-bill-tracker-backup.json', JSON.stringify(payload, null, 2), 'application/json');
+      toast('Backup downloaded');
+    }
+    function exportCsv() {
+      var header = ['Utility','Billing Month','Billing Year','Amount','Previous Amount','Dollar Change','Percentage Change','Payment Status','Due Date','Date Paid','Notes'];
+      var lines = [header.join(',')];
+      filteredBills().forEach(function (b) {
+        var u = utilityById(b.utilityId);
+        var a = Calc.annotateBill(b);
+        var row = [
+          csvCell(u ? u.name : ''),
+          csvCell(MONTHS[b.billingMonth - 1]),
+          b.billingYear,
+          b.amount,
+          a.previous == null ? '' : a.previous,
+          a.change == null ? '' : a.change,
+          a.pct == null ? 'N/A' : a.pct.toFixed(2),
+          csvCell(STATUS_LABEL[b.status] || b.status),
+          csvCell(b.dueDate || ''),
+          csvCell(b.paidDate || ''),
+          csvCell(b.notes || '')
+        ];
+        lines.push(row.join(','));
+      });
+      downloadFile('utility-bill-tracker.csv', lines.join('\r\n'), 'text/csv');
+      toast('CSV downloaded');
+    }
+    function csvCell(v) {
+      var s = String(v == null ? '' : v);
+      if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    }
+    function downloadFile(name, text, type) {
+      var blob = new Blob([text], { type: type });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    }
+    function validateBackup(data) {
+      if (!data || typeof data !== 'object') return 'File is not a JSON object.';
+      if (!Array.isArray(data.utilities) || !Array.isArray(data.bills)) return 'JSON must include utilities and bills arrays.';
+      var utils = data.utilities.filter(validUtility);
+      var bills = data.bills.filter(validBill);
+      if (!utils.length && !bills.length) return 'No valid utilities or bills found.';
+      return { utilities: utils, bills: bills, settings: data.settings && typeof data.settings === 'object' ? data.settings : {} };
+    }
+    async function importJsonText(text, mode) {
+      var parsed;
+      try { parsed = JSON.parse(text); }
+      catch (e) { toast('That file is not valid JSON. Existing data was not changed.'); return; }
+      var v = validateBackup(parsed);
+      if (typeof v === 'string') { toast(v + ' Existing data was not changed.'); return; }
+      if (mode === 'replace') {
+        await storeClear('utilities');
+        await storeClear('bills');
+      }
+      var nameToId = {};
+      state.utilities.forEach(function (u) { nameToId[u.name.toLowerCase()] = u.id; });
+      for (var i = 0; i < v.utilities.length; i++) {
+        var u = v.utilities[i];
+        if (mode === 'merge') {
+          var local = utilityById(u.id) || state.utilities.find(function (x) { return x.name.toLowerCase() === u.name.toLowerCase(); });
+          if (local && local.id !== u.id) {
+            v.bills.forEach(function (b) { if (b.utilityId === u.id) b.utilityId = local.id; });
+            u.id = local.id;
+          }
+        }
+        u.updatedAt = new Date().toISOString();
+        await storePut('utilities', u);
+      }
+      for (var j = 0; j < v.bills.length; j++) {
+        var b = v.bills[j];
+        b.yearMonth = ymKey(b.billingYear, b.billingMonth);
+        if (mode === 'merge' && state.bills.some(function (x) { return x.id === b.id; })) {
+          /* keep imported update */
+        }
+        await storePut('bills', b);
+      }
+      if (v.settings) {
+        state.settings = Object.assign(defaultSettings(), state.settings, v.settings, { id: 'settings' });
+        await saveSettings();
+      }
+      await loadAll();
+      toast(mode === 'replace' ? 'Backup restored (replaced)' : 'Backup merged');
+      render();
+    }
+
+    async function loadDemo() {
+      if (!idbOk || !db) { toast('Local storage is unavailable, so demo data cannot be saved.'); return; }
+      if (state.utilities.length || state.bills.length) {
+        var ok = await confirmModal('Load demo data', 'This adds sample Jamaican utilities and several months of bills. Existing records are kept unless they share the same IDs.', 'Load demo');
+        if (!ok) return;
+      }
+      var colors = ['#0f766e','#1d4ed8','#b45309','#7c3aed','#be123c'];
+      var names = [
+        { name: 'JPS Electricity', accountNumber: '123-456-789' },
+        { name: 'NWC Water', accountNumber: 'NWC-8821' },
+        { name: 'Flow Internet', accountNumber: 'FL-44019' },
+        { name: 'Digicel', accountNumber: '' },
+        { name: 'Security', accountNumber: '' }
+      ];
+      var ids = [];
+      var t = new Date().toISOString();
+      for (var i = 0; i < names.length; i++) {
+        var id = 'demo-util-' + (i + 1);
+        ids.push(id);
+        await storePut('utilities', {
+          id: id, name: names[i].name, accountNumber: names[i].accountNumber, description: 'Demo utility',
+          color: colors[i], logo: '', active: true, createdAt: t, updatedAt: t
+        });
+      }
+      var amounts = [
+        [15200,16100,15850,17200,16900,18450],
+        [5200,5450,5100,5600,5350,5700],
+        [8000,8000,8000,8000,8000,8000],
+        [3500,3500,3650,3500,3500,3800],
+        [4500,4500,4500,4500,4500,4500]
+      ];
+      var n = nowDate();
+      var end = { year: n.getFullYear(), month: n.getMonth() + 1 };
+      var start = addMonths(end.year, end.month, -5);
+      for (var u = 0; u < ids.length; u++) {
+        for (var m = 0; m < 6; m++) {
+          var mm = addMonths(start.year, start.month, m);
+          await storePut('bills', {
+            id: 'demo-bill-' + u + '-' + m,
+            utilityId: ids[u],
+            billingMonth: mm.month,
+            billingYear: mm.year,
+            yearMonth: ymKey(mm.year, mm.month),
+            amount: amounts[u][m],
+            status: m === 5 ? 'unpaid' : 'paid',
+            dueDate: mm.year + '-' + pad2(mm.month) + '-08',
+            paidDate: m === 5 ? '' : mm.year + '-' + pad2(mm.month) + '-10',
+            notes: m === 5 && u === 0 ? 'Higher this month because AC usage increased.' : '',
+            createdAt: t, updatedAt: t
+          });
+        }
+      }
+      state.settings.demoData = true;
+      state.settings.budgetEnabled = true;
+      state.settings.monthlyBudget = 50000;
+      await saveSettings();
+      await loadAll();
+      toast('Demo data loaded');
+      state.view = 'dashboard';
+      render();
+    }
+
+    async function clearAll() {
+      var ok = await confirmModal('Clear all data', 'This permanently deletes utilities, bills, logos, and settings on this device. Export a backup first if you need it.', 'Delete everything', true);
+      if (!ok) return;
+      await storeClear('utilities');
+      await storeClear('bills');
+      await storeClear('meta');
+      try { localStorage.removeItem('ubt-theme'); } catch (e) {}
+      state.settings = defaultSettings();
+      await saveSettings();
+      await loadAll();
+      toast('All data cleared');
+      state.view = 'dashboard';
+      render();
+    }
+
+    /* ---------- Events ---------- */
+    document.addEventListener('click', async function (e) {
+      if (e.target.getAttribute && e.target.getAttribute('data-backdrop') === '1') {
+        closeModal();
+        return;
+      }
+      var t = e.target.closest('[data-action]');
+      if (!t) return;
+      var action = t.getAttribute('data-action');
+      if (action === 'nav') {
+        var view = t.getAttribute('data-view');
+        if (view === 'more') {
+          openModal({
+            title: 'More',
+            body: '<div class="grid"><button class="btn btn-secondary" data-action="nav" data-view="reports">Reports</button><button class="btn btn-secondary" data-action="nav" data-view="settings">Settings</button></div>',
+            footer: '<button class="btn btn-primary" data-action="close-modal">Close</button>'
+          });
+          return;
+        }
+        state.view = view;
+        try { history.replaceState(null, '', '#' + view); } catch (err) {}
+        closeModal();
+        render();
+        return;
+      }
+      if (action === 'close-modal') { closeModal(); return; }
+      if (action === 'confirm-yes') { var r = confirmModal._resolve; closeModal(); if (r) r(true); return; }
+      if (action === 'confirm-no') { var r2 = confirmModal._resolve; closeModal(); if (r2) r2(false); return; }
+      if (action === 'open-utility-form') { utilityForm(null); return; }
+      if (action === 'edit-utility') { utilityForm(utilityById(t.getAttribute('data-id'))); return; }
+      if (action === 'save-utility') { await saveUtility(); return; }
+      if (action === 'delete-utility') {
+        var uidDel = t.getAttribute('data-id');
+        var related = state.bills.filter(function (b) { return b.utilityId === uidDel; }).length;
+        var okd = await confirmModal('Delete utility', related ? ('This utility has ' + related + ' bill(s). Deleting it will also delete those bills. Other utilities are not affected.') : 'Delete this utility?', 'Delete', true);
+        if (!okd) return;
+        await storeDelete('utilities', uidDel);
+        for (var i = 0; i < state.bills.length; i++) {
+          if (state.bills[i].utilityId === uidDel) await storeDelete('bills', state.bills[i].id);
+        }
+        await loadAll();
+        toast('Utility deleted');
+        render();
+        return;
+      }
+      if (action === 'open-utility-history') { showUtilityHistory(t.getAttribute('data-id')); return; }
+      if (action === 'open-bill-form') { billForm(null); return; }
+      if (action === 'edit-bill') { billForm(state.bills.find(function (b) { return b.id === t.getAttribute('data-id'); })); return; }
+      if (action === 'save-bill') { await saveBill(false); return; }
+      if (action === 'delete-bill') {
+        var okb = await confirmModal('Delete bill', 'Delete this bill record? This cannot be undone.', 'Delete', true);
+        if (!okb) return;
+        await storeDelete('bills', t.getAttribute('data-id'));
+        await loadAll();
+        toast('Bill deleted');
+        render();
+        return;
+      }
+      if (action === 'copy-prev') { copyPrevForm(); return; }
+      if (action === 'do-copy-prev') { await doCopyPrev(); return; }
+      if (action === 'load-demo') { await loadDemo(); return; }
+      if (action === 'export-json') { exportJson(); return; }
+      if (action === 'export-csv') { exportCsv(); return; }
+      if (action === 'import-json') { document.getElementById('import-file').click(); return; }
+      if (action === 'clear-all') { await clearAll(); return; }
+      if (action === 'print') { window.print(); return; }
+      if (action === 'install-app') { await installApp(); return; }
+      if (action === 'share-month') { await openShareMonth(); return; }
+      if (action === 'copy-share') { await copyShareImage(); return; }
+      if (action === 'download-share') { downloadShareImage(); return; }
+      if (action === 'system-share') { await systemShareImage(); return; }
+    });
+
+    document.addEventListener('change', async function (e) {
+      var id = e.target.id;
+      if (id === 'share-month' || id === 'share-year') {
+        var sm = document.getElementById('share-month');
+        var sy = document.getElementById('share-year');
+        if (sm && sy) await openShareMonth(+sy.value, +sm.value);
+        return;
+      }
+      if (id === 'period-select') {
+        state.period = e.target.value;
+        if (state.period === 'custom' && !state.customFrom) {
+          var n = nowDate();
+          var from = addMonths(n.getFullYear(), n.getMonth() + 1, -5);
+          state.customFrom = ymKey(from.year, from.month);
+          state.customTo = ymKey(n.getFullYear(), n.getMonth() + 1);
+        }
+        render();
+        return;
+      }
+      if (id === 'custom-from') { state.customFrom = e.target.value; render(); return; }
+      if (id === 'custom-to') { state.customTo = e.target.value; render(); return; }
+      if (id === 'bill-util') { state.billUtility = e.target.value; render(); return; }
+      if (id === 'bill-status') { state.billStatus = e.target.value; render(); return; }
+      if (id === 'bill-change') { state.billChange = e.target.value; render(); return; }
+      if (id === 'trend-util') { state.trendUtilityId = e.target.value; render(); return; }
+      if (id === 'import-file' && e.target.files[0]) {
+        var file = e.target.files[0];
+        e.target.value = '';
+        var text = await file.text();
+        var parsed;
+        try { parsed = JSON.parse(text); } catch (err) { toast('That file is not valid JSON. Existing data was not changed.'); return; }
+        var v = validateBackup(parsed);
+        if (typeof v === 'string') { toast(v + ' Existing data was not changed.'); return; }
+        openModal({
+          title: 'Import backup',
+          body: '<p>Found ' + v.utilities.length + ' utilities and ' + v.bills.length + ' bills. Choose how to apply them. Invalid records will be skipped.</p>' +
+            '<p class="muted">Replace overwrites everything on this device. Merge keeps existing records and adds or updates imported ones.</p>',
+          footer: '<button class="btn btn-secondary" data-action="close-modal">Cancel</button>' +
+            '<button class="btn btn-secondary" id="imp-merge">Merge</button>' +
+            '<button class="btn btn-danger" id="imp-replace">Replace</button>'
+        });
+        document.getElementById('imp-merge').onclick = async function () { closeModal(); await importJsonText(text, 'merge'); };
+        document.getElementById('imp-replace').onclick = async function () {
+          var ok = await confirmModal('Replace all data', 'This will overwrite utilities and bills currently stored on this device.', 'Replace', true);
+          if (!ok) return;
+          await importJsonText(text, 'replace');
+        };
+        return;
+      }
+      if (id === 'set-currency') { state.settings.currency = e.target.value; await saveSettings(); render(); return; }
+      if (id === 'set-theme') { applyTheme(e.target.value, true); render(); return; }
+      if (id === 'set-date') { state.settings.dateFormat = e.target.value; await saveSettings(); render(); return; }
+      if (id === 'set-decimals') { state.settings.decimalPlaces = +e.target.value; await saveSettings(); render(); return; }
+      if (id === 'set-grouping') { state.settings.grouping = e.target.checked; await saveSettings(); render(); return; }
+      if (id === 'set-budget-on') { state.settings.budgetEnabled = e.target.checked; await saveSettings(); render(); return; }
+      if (id === 'set-budget') {
+        var n = +e.target.value;
+        if (!isFinite(n) || n < 0) { toast('Budget cannot be negative.'); return; }
+        state.settings.monthlyBudget = n;
+        await saveSettings();
+        return;
+      }
+    });
+
+    document.addEventListener('input', function (e) {
+      if (e.target.id === 'bill-search') {
+        state.billSearch = e.target.value;
+        clearTimeout(viewBills._t);
+        viewBills._t = setTimeout(render, 150);
+      }
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    window.addEventListener('resize', function () {
+      clearTimeout(drawViewCharts._t);
+      drawViewCharts._t = setTimeout(drawViewCharts, 120);
+    });
+
+    /* ---------- PWA ---------- */
+    function setupPwa() {
+      var secure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      if ('serviceWorker' in navigator && secure) {
+        navigator.serviceWorker.register('sw.js').catch(function () {});
+      }
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        deferredInstall = e;
+        state.canInstall = true;
+        if (state.view === 'dashboard' || state.view === 'settings') render();
+      });
+      window.addEventListener('appinstalled', function () {
+        deferredInstall = null;
+        state.canInstall = false;
+        toast('App installed on this device');
+        if (state.view === 'dashboard' || state.view === 'settings') render();
+      });
+    }
+    async function installApp() {
+      if (!deferredInstall) {
+        toast('Use Chrome’s menu: Add to Home screen or Install app.');
+        return;
+      }
+      deferredInstall.prompt();
+      try {
+        var choice = await deferredInstall.userChoice;
+        if (choice && choice.outcome === 'accepted') {
+          deferredInstall = null;
+          state.canInstall = false;
+        }
+      } catch (err) {}
+    }
+
+    /* ---------- Init ---------- */
+    async function init() {
+      setupPwa();
+      try {
+        db = await openDb();
+        await loadAll();
+        if (!state.settings) {
+          state.settings = defaultSettings();
+          await saveSettings();
+        }
+      } catch (err) {
+        idbOk = false;
+        document.getElementById('idb-warning').hidden = false;
+        state.settings = defaultSettings();
+        state.utilities = [];
+        state.bills = [];
+      }
+      var hash = (location.hash || '').replace('#', '');
+      if (VIEW_TITLES[hash]) state.view = hash;
+      render();
+    }
+    window.addEventListener('hashchange', function () {
+      var hash = (location.hash || '').replace('#', '');
+      if (VIEW_TITLES[hash]) { state.view = hash; render(); }
+    });
+    init();
+  })();
+  </script>
+</body>
+</html>
